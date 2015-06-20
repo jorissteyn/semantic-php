@@ -42,11 +42,11 @@
 ;;;
 (defun semantic-php-default-setup ()
   "Setup semantic-php in the current buffer"
-  (semantic-php--install-parser)
+  (semantic-php-wy--install-parser)
 
   (setq
    ;; Lexical analysis
-   semantic-lex-analyzer 'wisent-php-lexer
+   semantic-lex-analyzer 'semantic-php-wy-lexer
 
    ;; Syntax table modifications
    semantic-lex-syntax-modifications
@@ -79,9 +79,6 @@
    ;; php-mode), and is only here to ensure correct parsing without a
    ;; major mode (test cases, batch project scan)
    parse-sexp-ignore-comments t
-
-   ;; Use the phptags symref implementation
-   semantic-symref-tool 'phptags
 
    ;; Separators to use when finding context prefix
    semantic-type-relation-separator-character '("::" "->")
