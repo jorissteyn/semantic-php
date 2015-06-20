@@ -1,0 +1,1570 @@
+;;; semantic-php.wy -- Wisent LALR grammar for PHP
+
+;; Copyright (C) 2014 Joris Steyn
+
+;; Author: Joris Steyn <jorissteyn@gmail.com>
+
+;; This file is not part of GNU Emacs.
+
+;; This file is free software; you can redistribute it and/or
+;; modify it under the terms of the GNU General Public License
+;; as published by the Free Software Foundation; either version 3
+;; of the License, or (at your option) any later version.
+
+;; This file is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this file; if not, write to the Free Software
+;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+;; 02110-1301, USA.
+
+;;; Commentary:
+
+;; This grammar contains two shift/reduce conflicts regarding else /
+;; elseif ambiguity, just like the official bison grammar.
+
+;;; References:
+
+;; * Based on PHP 7 zend_language_parser.y (commit eeb8ece)
+;; * Lexical structure based on https://raw.githubusercontent.com/php/php-langspec/master/spec/09-lexical-structure.md
+
+;;; Code:
+
+%package semantic-php-wy
+%provide semantic-php-wy
+
+%languagemode php-mode
+
+%{
+  ;; We need a slightly bigger stack than allowed in a standard emacs
+  ;; configuration. A future improvement might be to skip some rules
+  ;; not required by semantic-php so max-specpdl-size can be left
+  ;; untouched.
+  (setq max-specpdl-size 1400)
+}
+
+%use-macros semantic-php-wy-macro { EXPANDFULL EXPANDLIST USEDECL USETYPE USEGROUP }
+
+;; Terminals - literals
+%type <integer> ;; semantic-php-wy-integer-analyzer
+%token <integer> T_LNUMBER
+
+%type <float> ;; semantic-php-wy-float-analyzer
+%token <float> T_DNUMBER
+
+%type <string> syntax "\\<\\([a-zA-Z0-9_]\\)+\\>" matchdatatype regexp
+%token <string> T_STRING
+
+%type <quoted-string> syntax "\\s\"" matchdatatype sexp
+%token <quoted-string> T_CONSTANT_ENCAPSED_STRING
+
+%type <encapsed-and-whitespace> ;; semantic-php-wy-encapsed-and-whitespace-analyzer
+%token <encapsed-and-whitespace> T_ENCAPSED_AND_WHITESPACE
+
+%type <variable> syntax "\\([$][a-zA-Z_]+[a-zA-Z0-9_]*\\)"
+%token <variable> T_VARIABLE
+
+%type <mb> syntax "[[:nonascii:]]+"
+%token <mb> mbstring
+
+;; Terminals - blocks
+%type  <block>       ;;syntax "\\s(\\|\\s)" matchdatatype block
+%token <block>       PAREN_BLOCK "(LPAREN RPAREN)"
+%token <block>       BRACE_BLOCK "(LBRACE RBRACE)"
+%token <block>       BRACK_BLOCK "(LBRACK RBRACK)"
+
+%token <open-paren>  LPAREN      "("
+%token <close-paren> RPAREN      ")"
+%token <open-paren>  LBRACE      "{"
+%token <close-paren> RBRACE      "}"
+%token <open-paren>  LBRACK      "["
+%token <close-paren> RBRACK      "]"
+
+;; Terminals - keywords
+%type <keyword>
+%keyword T_INCLUDE                  "include"
+%keyword T_INCLUDE_ONCE             "include_once"
+%keyword T_EVAL                     "eval"
+%keyword T_REQUIRE                  "require"
+%keyword T_REQUIRE_ONCE             "require_once"
+%keyword T_LOGICAL_OR               "or"
+%keyword T_LOGICAL_XOR              "xor"
+%keyword T_LOGICAL_AND              "and"
+%keyword T_PRINT                    "print"
+%keyword T_YIELD                    "yield"
+%keyword T_INSTANCEOF               "instanceof"
+%keyword T_INT_CAST                 "(int)"
+%keyword T_DOUBLE_CAST              "(double)"
+%keyword T_STRING_CAST              "(string)"
+%keyword T_ARRAY_CAST               "(array)"
+%keyword T_OBJECT_CAST              "(object)"
+%keyword T_BOOL_CAST                "(bool)"
+%keyword T_UNSET_CAST               "(unset)"
+%keyword T_NEW                      "new"
+%keyword T_CLONE                    "clone"
+%keyword T_EXIT                     "exit"
+%keyword T_IF                       "if"
+%keyword T_ELSEIF                   "elseif"
+%keyword T_ELSE                     "else"
+%keyword T_ENDIF                    "endif"
+%keyword T_ECHO                     "echo"
+%keyword T_DO                       "do"
+%keyword T_WHILE                    "while"
+%keyword T_ENDWHILE                 "endwhile"
+%keyword T_FOR                      "for"
+%keyword T_ENDFOR                   "endfor"
+%keyword T_FOREACH                  "foreach"
+%keyword T_ENDFOREACH               "endforeach"
+%keyword T_DECLARE                  "declare"
+%keyword T_ENDDECLARE               "enddeclare"
+%keyword T_AS                       "as"
+%keyword T_SWITCH                   "switch"
+%keyword T_ENDSWITCH                "endswitch"
+%keyword T_CASE                     "case"
+%keyword T_DEFAULT                  "default"
+%keyword T_BREAK                    "break"
+%keyword T_CONTINUE                 "continue"
+%keyword T_GOTO                     "goto"
+%keyword T_FUNCTION                 "function"
+%keyword T_CONST                    "const"
+%keyword T_RETURN                   "return"
+%keyword T_TRY                      "try"
+%keyword T_CATCH                    "catch"
+%keyword T_FINALLY                  "finally"
+%keyword T_THROW                    "throw"
+%keyword T_USE                      "use"
+%keyword T_INSTEADOF                "insteadof"
+%keyword T_GLOBAL                   "global"
+%keyword T_STATIC                   "static"
+%keyword T_ABSTRACT                 "abstract"
+%keyword T_FINAL                    "final"
+%keyword T_PRIVATE                  "private"
+%keyword T_PROTECTED                "protected"
+%keyword T_PUBLIC                   "public"
+%keyword T_VAR                      "var"
+%keyword T_UNSET                    "unset"
+%keyword T_ISSET                    "isset"
+%keyword T_EMPTY                    "empty"
+%keyword T_HALT_COMPILER            "__halt_compiler"
+%keyword T_CLASS                    "class"
+%keyword T_TRAIT                    "trait"
+%keyword T_INTERFACE                "interface"
+%keyword T_EXTENDS                  "extends"
+%keyword T_IMPLEMENTS               "implements"
+%keyword T_LIST                     "list"
+%keyword T_ARRAY                    "array"
+%keyword T_CALLABLE                 "callable"
+%keyword T_LINE                     "__LINE__"
+%keyword T_FILE                     "__FILE__"
+%keyword T_DIR                      "__DIR__"
+%keyword T_CLASS_C                  "__CLASS__"
+%keyword T_TRAIT_C                  "__TRAIT__"
+%keyword T_METHOD_C                 "__METHOD__"
+%keyword T_FUNC_C                   "__FUNCTION__"
+%keyword T_NAMESPACE                "namespace"
+%keyword T_NS_C                     "__NAMESPACE__"
+
+;; The backslash has escape syntax everywhere, but we match it as
+;; punctuation here to support matching T_NS_SEPARATOR and DOLLAR as
+;; punctuation.
+%type <punctuation> syntax "\\(\\s.\\|\\s$\\|\\s'\\|[$]\\|[\\]\\)+" matchdatatype string
+%token <punctuation> DOLLAR      "$"
+%token <punctuation> SEMICOLON   ";"
+%token <punctuation> COLON       ":"
+%token <punctuation> COMMA       ","
+%token <punctuation> DOT         "."
+%token <punctuation> AT          "@"
+%token <punctuation> ASSIGN      "="
+%token <punctuation> AMPERSAND   "&"
+%token <punctuation> BACKQUOTE   "`"
+%token <punctuation> DOUBLEQUOTE "\""
+%token <punctuation> QUESTION    "?"
+%token <punctuation> NEGATE      "!"
+%token <punctuation> PLUS        "+"
+%token <punctuation> MINUS       "-"
+%token <punctuation> MODULO      "%"
+%token <punctuation> MULTIPLY    "*"
+%token <punctuation> DIVIDE      "/"
+%token <punctuation> LT          "<"
+%token <punctuation> GT          ">"
+%token <punctuation> BITNOT      "~"
+%token <punctuation> OR          "|"
+%token <punctuation> XOR         "^"
+
+%token <punctuation> T_PLUS_EQUAL               "+="
+%token <punctuation> T_MINUS_EQUAL              "-="
+%token <punctuation> T_MUL_EQUAL                "*="
+%token <punctuation> T_DIV_EQUAL                "/="
+%token <punctuation> T_CONCAT_EQUAL             ".="
+%token <punctuation> T_MOD_EQUAL                "%="
+%token <punctuation> T_AND_EQUAL                "&="
+%token <punctuation> T_OR_EQUAL                 "|="
+%token <punctuation> T_XOR_EQUAL                "^="
+%token <punctuation> T_SL_EQUAL                 "<<="
+%token <punctuation> T_SR_EQUAL                 ">>="
+%token <punctuation> T_BOOLEAN_OR               "||"
+%token <punctuation> T_BOOLEAN_AND              "&&"
+%token <punctuation> T_IS_EQUAL                 "=="
+%token <punctuation> T_IS_NOT_EQUAL             "!="
+%token <punctuation> T_IS_IDENTICAL             "==="
+%token <punctuation> T_IS_NOT_IDENTICAL         "!=="
+%token <punctuation> T_IS_SMALLER_OR_EQUAL      "<="
+%token <punctuation> T_IS_GREATER_OR_EQUAL      ">="
+%token <punctuation> T_SPACESHIP                "<=>"
+%token <punctuation> T_SL                       "<<"
+%token <punctuation> T_SR                       ">>"
+%token <punctuation> T_INC                      "++"
+%token <punctuation> T_DEC                      "--"
+%token <punctuation> T_OBJECT_OPERATOR          "->"
+%token <punctuation> T_DOUBLE_ARROW             "=>"
+%token <punctuation> T_DOLLAR_OPEN_CURLY_BRACES "${"
+%token <punctuation> T_CURLY_OPEN               "{$"
+%token <punctuation> T_PAAMAYIM_NEKUDOTAYIM     "::"
+%token <punctuation> T_NS_SEPARATOR             "\\"
+%token <punctuation> T_ELLIPSIS                 "..."
+%token <punctuation> T_COALESCE                 "??"
+%token <punctuation> T_POW                      "**"
+%token <punctuation> T_POW_EQUAL                "**="
+
+%type <open-tag-echo> matchdatatype sexp
+%token <open-tag-echo> T_OPEN_TAG_WITH_ECHO
+
+%type <open-tag> matchdatatype sexp
+%token <open-tag> T_OPEN_TAG
+
+%type <close-tag> matchdatatype sexp
+%token <close-tag> T_CLOSE_TAG
+
+%type <inline-html> matchdatatype sexp
+%token <inline-html> T_INLINE_HTML
+
+%type <heredoc-start> matchdatatype sexp
+%token <heredoc-start> T_START_HEREDOC
+
+%type <heredoc-end> matchdatatype sexp
+%token <heredoc-end> T_END_HEREDOC
+
+;;; Precedence rules
+%left T_INCLUDE T_INCLUDE_ONCE T_EVAL T_REQUIRE T_REQUIRE_ONCE
+%left COMMA
+%left T_LOGICAL_OR
+%left T_LOGICAL_XOR
+%left T_LOGICAL_AND
+%right T_PRINT
+%right T_YIELD
+%right T_DOUBLE_ARROW
+%left ASSIGN T_PLUS_EQUAL T_MINUS_EQUAL T_MUL_EQUAL T_DIV_EQUAL T_CONCAT_EQUAL T_MOD_EQUAL T_AND_EQUAL T_OR_EQUAL T_XOR_EQUAL T_SL_EQUAL T_SR_EQUAL T_POW_EQUAL
+%left QUESTION COLON
+%right T_COALESCE
+%left T_BOOLEAN_OR
+%left T_BOOLEAN_AND
+%left OR
+%left XOR
+%left AMPERSAND
+%nonassoc T_IS_EQUAL T_IS_NOT_EQUAL T_IS_IDENTICAL T_IS_NOT_IDENTICAL
+%nonassoc LT T_IS_SMALLER_OR_EQUAL GT T_IS_GREATER_OR_EQUAL T_SPACESHIP
+%left T_SL T_SR
+%left PLUS MINUS DOT
+%left MULTIPLY DIVIDE MODULO
+%right NEGATE
+%nonassoc T_INSTANCEOF
+%right BITNOT T_INC T_DEC T_INT_CAST T_DOUBLE_CAST T_STRING_CAST T_ARRAY_CAST T_OBJECT_CAST T_BOOL_CAST T_UNSET_CAST AT
+%right T_POW
+%right LBRACK
+%nonassoc T_NEW T_CLONE
+%left T_ELSEIF
+%left T_ELSE
+%left T_ENDIF
+%right T_STATIC T_ABSTRACT T_FINAL T_PRIVATE T_PROTECTED T_PUBLIC
+
+;;; Nonterminals
+%start top_statement_start
+
+;;; Required by EXPANDFULL
+%start assignment_list_elements
+%start case_list_brace_block
+%start catch_list_name_paren_block
+%start class_statement_list
+%start const_list_paren_block
+%start encaps_var_offset_brack_block
+%start expr
+%start expr_brace_block
+%start expr_paren_block
+%start for_exprs_paren_block
+%start foreach_paren_block
+%start inline_use_declarations_brace_block
+%start inner_statement_list_brace_block
+%start isset_variables
+%start lexical_var_list
+%start non_empty_argument_list
+%start optional_expr
+%start parameter_list
+%start top_statement_list
+%start trait_adaptations_brace_block
+%start unset_variables
+%start use_declarations_brace_block
+%start variable_brace_block
+
+;;; Required by EXPANDTAG
+%start class_const_list
+%start const_list
+%start constant
+%start encaps_var
+%start inner_statement_list
+%start property
+%start simple_variable
+%start static_var
+%start top_statement
+
+%%
+
+;;; LALR grammar
+top_statement_start
+  : T_OPEN_TAG top_statement           (identity $2)
+  | T_OPEN_TAG_WITH_ECHO top_statement (identity $2)
+  | top_statement
+  | T_CLOSE_TAG                        ()
+  ;
+
+top_statement_list
+  : LBRACE        ()
+  | RBRACE        ()
+  | top_statement
+  ;
+
+namespace_name
+  : T_STRING
+  | namespace_name T_NS_SEPARATOR T_STRING (concat $1 $2 $3)
+  ;
+
+name
+  : namespace_name
+ ;; TODO: what language feature is this, don't understand below rule.
+  | T_NAMESPACE T_NS_SEPARATOR namespace_name ()
+  | T_NS_SEPARATOR namespace_name             (concat $1 $2)
+  ;
+
+top_statement
+  : statement
+  | function_declaration_statement
+  | class_declaration_statement
+  | trait_declaration_statement
+  | interface_declaration_statement
+  | T_HALT_COMPILER PAREN_BLOCK SEMICOLON ()
+  | T_NAMESPACE namespace_name SEMICOLON
+    (EXPANDTAG (TYPE-TAG (semantic-php-wy-normalize-qualified-name $2)
+                         $1 nil nil
+                         :braceless t))
+  | T_NAMESPACE namespace_name BRACE_BLOCK
+    (EXPANDTAG (TYPE-TAG (semantic-php-wy-normalize-qualified-name $2)
+                         $1 (EXPANDFULL $3 top_statement_list) nil))
+  | T_NAMESPACE BRACE_BLOCK
+    (EXPANDTAG (TYPE-TAG "\\" $1 (EXPANDFULL $2 top_statement_list) nil))
+  | T_USE mixed_group_use_declaration SEMICOLON    (identity $2)
+  | T_USE use_type group_use_declaration SEMICOLON (USETYPE $3 $2)
+  | T_USE use_declarations SEMICOLON               (EXPANDLIST $2)
+  | T_USE use_type use_declarations SEMICOLON      (EXPANDLIST (USETYPE $3 $2))
+  | T_CONST const_list SEMICOLON                   (identity $2)
+  ;
+
+use_type
+  : T_FUNCTION
+  | T_CONST
+  ;
+
+group_use_declaration
+  : namespace_name T_NS_SEPARATOR BRACE_BLOCK
+    (USEGROUP $1 (EXPANDFULL $3 use_declarations_brace_block))
+  ;
+
+mixed_group_use_declaration
+  : namespace_name T_NS_SEPARATOR BRACE_BLOCK
+    (USEGROUP $1 (EXPANDFULL $3 inline_use_declarations_brace_block))
+  ;
+
+inline_use_declarations
+  : inline_use_declarations COMMA inline_use_declaration (append $1 (list $3))
+  | inline_use_declaration                               (list $1)
+  ;
+
+inline_use_declarations_brace_block
+  : LBRACE                  ()
+  | RBRACE                  ()
+  | inline_use_declaration
+  ;
+
+inline_use_declaration
+  : use_declaration          (USETYPE $1 "class")
+  | use_type use_declaration (USETYPE $2 $1)
+  ;
+
+use_declarations
+  : use_declarations COMMA use_declaration (append $1 (list $3))
+  | use_declaration                        (list $1)
+  ;
+
+use_declarations_brace_block
+  : LBRACE          ()
+  | RBRACE          ()
+  | use_declaration
+  ;
+
+use_declaration
+  : namespace_name                              (USEDECL $1)
+  | namespace_name T_AS T_STRING                (USEDECL $1 $3)
+  | T_NS_SEPARATOR namespace_name               (USEDECL $2)
+  | T_NS_SEPARATOR namespace_name T_AS T_STRING (USEDECL $2 $4)
+  ;
+
+const_list_paren_block
+  : LPAREN     ()
+  | RPAREN     ()
+  | const_list
+  ;
+
+const_list
+  : const_list COMMA const_decl (append $1 (EXPANDTAG $3))
+  | const_decl                  (EXPANDTAG $1)
+  ;
+
+inner_statement_list
+  : ;; EMPTY
+  | inner_statement_list inner_statement (append $1 $2)
+  ;
+
+inner_statement_list_brace_block
+  : LBRACE          ()
+  | RBRACE          ()
+  | inner_statement
+  ;
+
+inner_statement
+  : statement
+  | function_declaration_statement
+  | class_declaration_statement
+  | trait_declaration_statement
+  | interface_declaration_statement
+  | T_HALT_COMPILER PAREN_BLOCK SEMICOLON ()
+  ;
+
+statement
+  : BRACE_BLOCK                                    (EXPANDFULL $1 inner_statement_list_brace_block)
+  | if_stmt
+  | alt_if_stmt
+  | T_WHILE PAREN_BLOCK while_statement            (append (EXPANDFULL $2 expr_paren_block) $3)
+  | T_DO statement T_WHILE PAREN_BLOCK SEMICOLON   (append $2 (EXPANDFULL $4 expr_paren_block))
+  | T_FOR PAREN_BLOCK for_statement                (append (EXPANDFULL $2 for_exprs_paren_block) $3)
+  | T_SWITCH PAREN_BLOCK switch_case_list          (append (EXPANDFULL $2 expr_paren_block) $3)
+  | T_BREAK optional_expr SEMICOLON                (identity $2)
+  | T_CONTINUE optional_expr SEMICOLON             (identity $2)
+  | T_RETURN optional_expr SEMICOLON               (identity $2)
+  | T_GLOBAL global_var_list SEMICOLON             (identity $2)
+  | T_STATIC static_var_list SEMICOLON             (identity $2)
+  | T_ECHO echo_expr_list SEMICOLON                (identity $2)
+  | T_CLOSE_TAG T_INLINE_HTML T_OPEN_TAG           ()
+  | T_CLOSE_TAG T_INLINE_HTML T_OPEN_TAG_WITH_ECHO ()
+  | expr SEMICOLON
+  | T_UNSET PAREN_BLOCK SEMICOLON                  (EXPANDFULL $2 unset_variables)
+  | T_FOREACH PAREN_BLOCK foreach_statement        (append (EXPANDFULL $2 foreach_paren_block) $3)
+  | T_DECLARE PAREN_BLOCK declare_statement        (EXPANDFULL $2 const_list_paren_block)
+  | SEMICOLON                                      ()
+  | T_TRY BRACE_BLOCK catch_list finally_statement (append (EXPANDFULL $2 inner_statement_list_brace_block) $3 $4)
+  | T_THROW expr SEMICOLON                         (identity $2)
+  | T_GOTO T_STRING SEMICOLON                      ()
+  | T_STRING COLON                                 ()
+  ;
+
+foreach_paren_block
+  : LPAREN expr T_AS foreach_variable RPAREN                                 (append $2 $4)
+  | LPAREN expr T_AS foreach_variable T_DOUBLE_ARROW foreach_variable RPAREN (append $2 $4 $6)
+  ;
+
+catch_list
+  : ;; EMPTY
+  | catch_list T_CATCH PAREN_BLOCK BRACE_BLOCK (append $1
+                                                       (EXPANDFULL $3 catch_list_name_paren_block)
+                                                       (EXPANDFULL $4 inner_statement_list_brace_block))
+  ;
+
+catch_list_name_paren_block
+  : LPAREN name T_VARIABLE RPAREN (VARIABLE-TAG $3 $2 nil)
+  ;
+
+finally_statement
+  : ;; EMPTY
+  | T_FINALLY BRACE_BLOCK (EXPANDFULL $2 inner_statement_list_brace_block)
+  ;
+
+unset_variables
+  : LPAREN ()
+  | RPAREN ()
+  | COMMA  ()
+  | unset_variable
+  ;
+
+unset_variable
+  : variable
+  ;
+
+function_declaration_statement
+  : function returns_ref T_STRING PAREN_BLOCK return_type BRACE_BLOCK
+    (FUNCTION-TAG $3 $5 (EXPANDFULL $4 parameter_list)
+                  :members (EXPANDFULL $6 inner_statement_list_brace_block))
+  ;
+
+is_reference
+  : ;; EMPTY
+  | AMPERSAND
+  ;
+
+is_variadic
+  : ;; EMPTY
+  | T_ELLIPSIS
+  ;
+
+class_declaration_statement
+  : class_modifiers T_CLASS T_STRING extends_from implements_list BRACE_BLOCK
+    (TYPE-TAG $3 $2
+              (EXPANDFULL $6 class_statement_list)
+              (cons $4 $5) ;; (extends_from . implements_list)
+              :typemodifiers $1)
+  | T_CLASS T_STRING extends_from implements_list BRACE_BLOCK
+    (TYPE-TAG $2 $1
+              (EXPANDFULL $5 class_statement_list)
+              (cons $3 $4)) ;; (extends_from . implements_list)
+  ;
+
+trait_declaration_statement
+  : T_TRAIT T_STRING extends_from implements_list BRACE_BLOCK
+    (TYPE-TAG $2 $1
+              (EXPANDFULL $5 class_statement_list)
+              (cons $3 $4))
+  ;
+
+interface_declaration_statement
+  : T_INTERFACE T_STRING interface_extends_list BRACE_BLOCK
+    (TYPE-TAG $2 $1
+              (EXPANDFULL $4 class_statement_list)
+              (cons $3 nil))
+  ;
+
+class_modifiers
+  : class_modifier                 (list $1)
+  | class_modifiers class_modifier (append $1 (list $2))
+  ;
+
+class_modifier
+  : T_ABSTRACT
+  | T_FINAL
+  ;
+
+extends_from
+  : ;; EMPTY
+  | T_EXTENDS name (identity $2)
+  ;
+
+interface_extends_list
+  : ;; EMPTY
+  | T_EXTENDS name_list (identity $2)
+  ;
+
+implements_list
+  : ;; EMPTY
+  | T_IMPLEMENTS name_list (identity $2)
+  ;
+
+foreach_variable
+  : variable
+  | AMPERSAND variable (identity $2)
+  | T_LIST PAREN_BLOCK (EXPANDFULL $2 assignment_list_elements)
+  ;
+
+for_statement
+  : statement
+  | COLON inner_statement_list T_ENDFOR SEMICOLON (identity $2)
+  ;
+
+foreach_statement
+  : statement
+  | COLON inner_statement_list T_ENDFOREACH SEMICOLON (identity $2)
+  ;
+
+declare_statement
+  : statement
+  | COLON inner_statement_list T_ENDDECLARE SEMICOLON (identity $2)
+  ;
+
+switch_case_list
+  : BRACE_BLOCK                                     (EXPANDFULL $1 case_list_brace_block)
+  | COLON case_list T_ENDSWITCH SEMICOLON           (identity $2)
+  | COLON SEMICOLON case_list T_ENDSWITCH SEMICOLON (identity $3)
+  ;
+
+case_list_brace_block
+  : LBRACE           ()
+  | LBRACE SEMICOLON ()
+  | RBRACE           ()
+  | case_list
+  ;
+
+case_list
+  : ;; EMPTY
+  | case_list T_CASE expr case_separator inner_statement_list (append $1 $3 $5)
+  | case_list T_DEFAULT case_separator inner_statement_list   (append $1 $4)
+  ;
+
+case_separator
+  : COLON
+  | SEMICOLON
+  ;
+
+while_statement
+  : statement
+  | COLON inner_statement_list T_ENDWHILE SEMICOLON (identity $2)
+  ;
+
+if_stmt_without_else
+  : T_IF PAREN_BLOCK statement                          (append (EXPANDFULL $2 expr_paren_block) $3)
+  | if_stmt_without_else T_ELSEIF PAREN_BLOCK statement (append $1 (EXPANDFULL $3 expr_paren_block) $4)
+  ;
+
+if_stmt
+  : if_stmt_without_else
+  | if_stmt_without_else T_ELSE statement (append $1 $3)
+  ;
+
+alt_if_stmt_without_else
+  : T_IF PAREN_BLOCK COLON inner_statement_list                              (append (EXPANDFULL $2 expr_paren_block) $4)
+  | alt_if_stmt_without_else T_ELSEIF PAREN_BLOCK COLON inner_statement_list (append $1 (EXPANDFULL $3 expr_paren_block) $5)
+  ;
+
+alt_if_stmt
+  : alt_if_stmt_without_else T_ENDIF SEMICOLON
+  | alt_if_stmt_without_else T_ELSE COLON inner_statement_list T_ENDIF SEMICOLON (append $1 $4)
+  ;
+
+parameter_list
+  : LPAREN ()
+  | RPAREN ()
+  | parameter COMMA
+  | parameter RPAREN
+  ;
+
+parameter
+  : optional_type is_reference is_variadic T_VARIABLE
+    (VARIABLE-TAG $4 $1 ;; T_VARIABLE optional_type
+                  nil   ;; no default value
+                  ;; is_reference / is_variadic modifiers
+                  :typemodifiers (remq nil (list $2 $3)))
+  | optional_type is_reference is_variadic T_VARIABLE ASSIGN expr
+    (VARIABLE-TAG $4 $1 ;; T_VARIABLE optional_type
+                  (cond ((and (semantic-tag-p $6)
+                              (memq (semantic-tag-class $6) '(code constant)))
+                         (semantic-tag-name $6))
+                        ((stringp $6)
+                         (identity $6)))
+                  ;; is_reference / is_variadic modifiers
+                  :typemodifiers (remq nil (list $2 $3)))
+  ;
+
+optional_type
+  : ;; EMPTY
+  | type
+  ;
+
+type
+  : T_ARRAY
+  | T_CALLABLE
+  | name
+  ;
+
+return_type
+  : ;; EMPTY
+  | COLON type (identity $2)
+  ;
+
+argument_list
+  : PAREN_BLOCK (EXPANDFULL $1 non_empty_argument_list)
+  ;
+
+non_empty_argument_list
+  : LPAREN   ()
+  | RPAREN   ()
+  | COMMA    ()
+  | argument
+  ;
+
+argument
+  : expr
+  | T_ELLIPSIS expr (identity $2)
+  ;
+
+global_var_list
+  : global_var_list COMMA global_var (append $1 $3)
+  | global_var                       (identity $1)
+  ;
+
+global_var
+  : simple_variable
+  ;
+
+
+static_var_list
+  : static_var_list COMMA static_var (append $1 $3)
+  | static_var
+  ;
+
+static_var
+  : T_VARIABLE             (EXPANDTAG (VARIABLE-TAG $1 nil nil))
+  | T_VARIABLE ASSIGN expr (append (EXPANDTAG (VARIABLE-TAG $1 nil nil)) $3)
+  ;
+
+class_statement_list
+  : LBRACE ()
+  | RBRACE ()
+  | class_statement
+  ;
+
+class_statement
+  : variable_modifiers property_list SEMICOLON
+    (let ((result nil))
+      ;; Collect compound variable declarations like 'public $x, $y;'
+      (dolist (property (nreverse $2) result)
+        ;; Set the type modifier of $y in 'public $x, $y' to public
+        ;; TODO: Correct the bounds, partial reparse won't if the reparse-symbol
+        ;; only matches outside the bounds set in the property rule.
+        (semantic-tag-put-attribute property :typemodifiers $1)
+        (setq result (cons property result))))
+  | T_CONST class_const_list SEMICOLON
+    (identity $2)
+  | T_USE name_list trait_adaptations
+    (let (result tmp)
+      (dolist (name $2 result)
+        (setq tmp (TAG name 'trait-usage :adaptations $3))
+        (setq result (append result (EXPANDTAG tmp)))))
+  | method_modifiers function returns_ref T_STRING PAREN_BLOCK return_type method_body
+    (FUNCTION-TAG $4 $6
+                  (EXPANDFULL $5 parameter_list)
+                  :typemodifiers $1
+                  :constructor-flag (equal $4 "__construct")
+                  :destructor-flag (equal $4 "__destruct")
+                  :members $7)
+  ;
+
+name_list
+  : name                 (list $1)
+  | name_list COMMA name (append $1 (list $3))
+  ;
+
+trait_adaptations
+  : SEMICOLON   ()
+  | BRACE_BLOCK (EXPANDFULL $1 trait_adaptations_brace_block)
+  ;
+
+trait_adaptations_brace_block
+  : ;; EMPTY
+  | LBRACE trait_adaptation_list RBRACE
+    (identity $2)
+  ;
+
+trait_adaptation_list
+  : trait_adaptation                       (list $1)
+  | trait_adaptation_list trait_adaptation (append $1 (list $2))
+  ;
+
+trait_adaptation
+  : trait_precedence SEMICOLON
+  | trait_alias SEMICOLON
+  ;
+
+trait_precedence
+  : absolute_trait_method_reference T_INSTEADOF name_list
+    (TAG $1 'trait-precedence :insteadof $3)
+  ;
+
+trait_alias
+  : trait_method_reference T_AS trait_modifiers T_STRING
+    (TAG $1 'trait-alias :alias $3 :modifiers $4)
+  | trait_method_reference T_AS member_modifier
+    (TAG $1 'trait-alias :alias $3)
+  ;
+
+trait_method_reference
+  : T_STRING
+  | absolute_trait_method_reference
+  ;
+
+absolute_trait_method_reference
+  : name T_PAAMAYIM_NEKUDOTAYIM T_STRING
+    (concat $1 $2 $3)
+  ;
+
+trait_modifiers
+  : ;; EMPTY
+  | member_modifier
+  ;
+
+method_body
+  : SEMICOLON   ()
+  | BRACE_BLOCK (EXPANDFULL $1 inner_statement_list_brace_block)
+  ;
+
+variable_modifiers
+  : non_empty_member_modifiers
+    ;; All members are public in PHP 4, so simply fake the public
+    ;; modifier here
+  | T_VAR (identity "public")
+  ;
+
+method_modifiers
+  : ;; EMPTY
+  | non_empty_member_modifiers
+  ;
+
+non_empty_member_modifiers
+  : member_modifier                            (list $1)
+  | non_empty_member_modifiers member_modifier (append $1 (list $2))
+  ;
+
+member_modifier
+  : T_PUBLIC
+  | T_PROTECTED
+  | T_PRIVATE
+  | T_STATIC
+  | T_ABSTRACT
+  | T_FINAL
+  ;
+
+property_list
+  : property_list COMMA property (append $1 $3)
+  | property
+  ;
+
+property
+  : T_VARIABLE             (EXPANDTAG (VARIABLE-TAG $1 nil nil))
+  | T_VARIABLE ASSIGN expr (EXPANDTAG (VARIABLE-TAG $1 nil nil))
+  ;
+
+class_const_list
+  : class_const_list COMMA const_decl (append $1 (EXPANDTAG $3))
+  | const_decl                        (EXPANDTAG $1)
+  ;
+
+const_decl
+  : T_STRING ASSIGN expr (TAG $1 'constant)
+  ;
+
+echo_expr_list
+  : echo_expr_list COMMA echo_expr (append $1 $3)
+  | echo_expr
+  ;
+
+echo_expr
+  : expr
+  ;
+
+for_exprs_paren_block
+  : LPAREN for_exprs SEMICOLON for_exprs SEMICOLON for_exprs RPAREN
+    (append $2 $4 $6)
+  ;
+
+for_exprs
+  : ;; EMPTY
+  | non_empty_for_exprs
+  ;
+
+non_empty_for_exprs
+  : non_empty_for_exprs COMMA expr (append $1 $3)
+  | expr
+  ;
+
+new_expr
+  : T_NEW class_name_reference ctor_arguments
+    ()
+  ;
+
+expr_without_variable
+  : T_LIST PAREN_BLOCK ASSIGN expr
+    (append (EXPANDFULL $2 assignment_list_elements) $4)
+  | variable ASSIGN expr
+    (progn
+      (if (and (semantic-tag-p (car $3))
+               (equal "new" (semantic-tag-code-detail (car $3)))
+               (stringp (semantic-tag-name (car $3))))
+          (semantic-tag-put-attribute (car $1) :type (semantic-tag-name (car $3))))
+      (append $1 $3))
+  | variable ASSIGN AMPERSAND variable     (append $1 $4)
+  | T_CLONE expr                           (identity $2)
+  | variable T_PLUS_EQUAL expr             (append $1 $3)
+  | variable T_MINUS_EQUAL expr            (append $1 $3)
+  | variable T_MUL_EQUAL expr              (append $1 $3)
+  | variable T_POW_EQUAL expr              (append $1 $3)
+  | variable T_DIV_EQUAL expr              (append $1 $3)
+  | variable T_CONCAT_EQUAL expr           (append $1 $3)
+  | variable T_MOD_EQUAL expr              (append $1 $3)
+  | variable T_AND_EQUAL expr              (append $1 $3)
+  | variable T_OR_EQUAL expr               (append $1 $3)
+  | variable T_XOR_EQUAL expr              (append $1 $3)
+  | variable T_SL_EQUAL expr               (append $1 $3)
+  | variable T_SR_EQUAL expr               (append $1 $3)
+  | variable T_INC
+  | T_INC variable                         (identity $2)
+  | variable T_DEC
+  | T_DEC variable                         (identity $2)
+  | expr T_BOOLEAN_OR expr                 (append $1 $3)
+  | expr T_BOOLEAN_AND expr                (append $1 $3)
+  | expr T_LOGICAL_OR expr                 (append $1 $3)
+  | expr T_LOGICAL_AND expr                (append $1 $3)
+  | expr T_LOGICAL_XOR expr                (append $1 $3)
+  | expr OR expr                           (append $1 $3)
+  | expr AMPERSAND expr                    (append $1 $3)
+  | expr XOR expr                          (append $1 $3)
+  | expr DOT expr                          (append $1 $3)
+  | expr PLUS expr                         (append $1 $3)
+  | expr MINUS expr                        (append $1 $3)
+  | expr MULTIPLY expr                     (append $1 $3)
+  | expr T_POW expr                        (append $1 $3)
+  | expr DIVIDE expr                       (append $1 $3)
+  | expr MODULO expr                       (append $1 $3)
+  | expr T_SL expr                         (append $1 $3)
+  | expr T_SR expr                         (append $1 $3)
+  | PLUS expr %prec T_INC                  (identity $2)
+  | MINUS expr %prec T_INC                 (identity $2)
+  | NEGATE expr                            (identity $2)
+  | BITNOT expr                            (identity $2)
+  | expr T_IS_IDENTICAL expr               (append $1 $3)
+  | expr T_IS_NOT_IDENTICAL expr           (append $1 $3)
+  | expr T_IS_EQUAL expr                   (append $1 $3)
+  | expr T_IS_NOT_EQUAL expr               (append $1 $3)
+  | expr LT expr                           (append $1 $3)
+  | expr T_IS_SMALLER_OR_EQUAL expr        (append $1 $3)
+  | expr GT expr                           (append $1 $3)
+  | expr T_IS_GREATER_OR_EQUAL expr        (append $1 $3)
+  | expr T_SPACESHIP expr                  (append $1 $3)
+  | expr T_INSTANCEOF class_name_reference
+ ;; TODO: Another example of a rule that needs to be expanded
+ ;; differently depending on where used. Fix this!
+ ;;  | PAREN_BLOCK (EXPANDFULL $1 expr)
+  | PAREN_BLOCK                            ()
+  | new_expr
+  | expr QUESTION expr COLON expr          (append $1 $3 $5)
+  | expr QUESTION COLON expr               (append $1 $4)
+  | expr T_COALESCE expr                   (append $1 $3)
+  | internal_functions_in_yacc
+  | T_INT_CAST expr                        (identity $2)
+  | T_DOUBLE_CAST expr                     (identity $2)
+  | T_STRING_CAST expr                     (identity $2)
+  | T_ARRAY_CAST expr                      (identity $2)
+  | T_OBJECT_CAST expr                     (identity $2)
+  | T_BOOL_CAST expr                       (identity $2)
+  | T_UNSET_CAST expr                      (identity $2)
+  | T_EXIT exit_expr                       (identity $2)
+  | AT expr                                (identity $2)
+  | scalar
+  | BACKQUOTE backticks_expr BACKQUOTE     (identity $2)
+  | T_PRINT expr                           (identity $2)
+  | T_YIELD
+  | T_YIELD expr                           (identity $2)
+  | T_YIELD expr T_DOUBLE_ARROW expr       (append $2 $4)
+  | function returns_ref PAREN_BLOCK lexical_vars return_type BRACE_BLOCK
+    (EXPANDTAG (FUNCTION-TAG "closure" $5 (EXPANDFULL $3 parameter_list)
+                  :lexical-scope $4
+                  :members (EXPANDFULL $6 inner_statement_list)))
+  | T_STATIC function returns_ref PAREN_BLOCK lexical_vars return_type BRACE_BLOCK
+    (EXPANDTAG (FUNCTION-TAG "closure" $6 (EXPANDFULL $4 parameter_list)
+                  :lexical-scope $5
+                  :members (EXPANDFULL $7 inner_statement_list)))
+  ;
+
+function
+  : T_FUNCTION
+  ;
+
+returns_ref
+  : ;; EMPTY
+  | AMPERSAND
+  ;
+
+lexical_vars
+  : ;; EMPTY
+  | T_USE PAREN_BLOCK (EXPANDFULL $2 lexical_var_list)
+  ;
+
+lexical_var_list
+  : LPAREN ()
+  | RPAREN ()
+  | COMMA  ()
+  | lexical_var
+  ;
+
+lexical_var
+  : T_VARIABLE           (VARIABLE-TAG $1 nil nil)
+  | AMPERSAND T_VARIABLE (VARIABLE-TAG $2 nil nil :typemodifiers (list $1))
+  ;
+
+function_call
+  : name argument_list                                                   ()
+  | class_name T_PAAMAYIM_NEKUDOTAYIM member_name argument_list          ()
+  | variable_class_name T_PAAMAYIM_NEKUDOTAYIM member_name argument_list ()
+  | callable_expr argument_list                                          ()
+  ;
+
+class_name
+  : T_STATIC
+  | name
+  ;
+
+class_name_reference
+  : class_name
+  | new_variable
+  ;
+
+exit_expr
+  : ;; EMPTY
+  | PAREN_BLOCK
+    ()
+  ;
+
+backticks_expr
+  : ;; EMPTY
+  | T_ENCAPSED_AND_WHITESPACE ()
+  | encaps_list               ()
+  ;
+
+ctor_arguments
+  : ;; EMPTY
+  | argument_list
+  ;
+
+dereferencable_scalar
+  : T_ARRAY PAREN_BLOCK        ()
+  | BRACK_BLOCK                ()
+  | T_CONSTANT_ENCAPSED_STRING ()
+  ;
+
+scalar
+  : T_LNUMBER                                               ()
+  | T_DNUMBER                                               ()
+  | T_LINE                                                  ()
+  | T_FILE                                                  ()
+  | T_DIR                                                   ()
+  | T_TRAIT_C                                               ()
+  | T_METHOD_C                                              ()
+  | T_FUNC_C                                                ()
+  | T_NS_C                                                  ()
+  | T_CLASS_C                                               ()
+  | T_START_HEREDOC T_ENCAPSED_AND_WHITESPACE T_END_HEREDOC ()
+  | T_START_HEREDOC T_END_HEREDOC                           ()
+  | DOUBLEQUOTE encaps_list DOUBLEQUOTE                     (identity $2)
+  | T_START_HEREDOC encaps_list T_END_HEREDOC               (identity $2)
+  | dereferencable_scalar                                   ()
+  | class_name_scalar                                       ()
+  | constant
+  ;
+
+constant
+  : name                                                (EXPANDTAG (TAG $1 'constant))
+  | class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING          ()
+  | variable_class_name T_PAAMAYIM_NEKUDOTAYIM T_STRING (identity $1)
+  ;
+
+possible_comma
+  : ;; EMPTY
+  | COMMA
+  ;
+
+expr
+  : variable
+  | expr_without_variable
+  ;
+
+expr_paren_block
+  : LPAREN expr RPAREN (identity $2)
+  ;
+
+expr_brace_block
+  : LBRACE expr RBRACE (identity $2)
+  ;
+
+optional_expr
+  : ;; EMPTY
+  | expr
+  ;
+
+optional_expr_paren_block
+  : LPAREN optional_expr RPAREN (identity $2)
+  ;
+
+optional_expr_brack_block
+  : LBRACK optional_expr RBRACK (identity $2)
+  ;
+
+variable_class_name
+  : dereferencable ()
+  ;
+
+dereferencable
+  : variable
+  | PAREN_BLOCK           ()
+  | dereferencable_scalar ()
+  ;
+
+callable_expr
+  : callable_variable
+  | PAREN_BLOCK           (EXPANDFULL $1 expr)
+  | PAREN_BLOCK           ()
+  | dereferencable_scalar ()
+  ;
+
+callable_variable
+  : simple_variable
+  | dereferencable BRACK_BLOCK                                 (append $1 (EXPANDFULL $2 optional_expr))
+  | constant BRACK_BLOCK                                       (append $1 (EXPANDFULL $2 optional_expr))
+  | dereferencable BRACE_BLOCK                                 (append $1 (EXPANDFULL $2 expr))
+  | dereferencable T_OBJECT_OPERATOR member_name argument_list (append $1 $4)
+  | function_call                                              ()
+  ;
+
+variable
+  : callable_variable
+  | static_member                                ()
+  | dereferencable T_OBJECT_OPERATOR member_name ()
+  ;
+
+variable_brace_block
+  : LBRACE variable RBRACE (identity $2)
+  ;
+
+simple_variable
+  : T_VARIABLE             (EXPANDTAG (VARIABLE-TAG $1 nil nil))
+  | DOLLAR BRACE_BLOCK     (EXPANDFULL $2 expr_brace_block)
+  | DOLLAR simple_variable (identity $2)
+  ;
+
+static_member
+  : class_name T_PAAMAYIM_NEKUDOTAYIM simple_variable          ()
+  | variable_class_name T_PAAMAYIM_NEKUDOTAYIM simple_variable ()
+  ;
+
+new_variable
+  : simple_variable
+  | new_variable BRACK_BLOCK
+  | new_variable BRACE_BLOCK
+  | new_variable T_OBJECT_OPERATOR member_name
+  | class_name T_PAAMAYIM_NEKUDOTAYIM simple_variable   ()
+  | new_variable T_PAAMAYIM_NEKUDOTAYIM simple_variable
+  ;
+
+member_name
+  : T_STRING
+  | BRACE_BLOCK     ()
+  | simple_variable
+  ;
+
+member_name_brace_block
+  : LBRACE member_name RBRACE (identity $2)
+  ;
+
+assignment_list_elements
+  : LPAREN ()
+  | RPAREN ()
+  | assignment_list_element COMMA
+  | assignment_list_element RPAREN
+  ;
+
+assignment_list_element
+  : variable
+  | T_LIST PAREN_BLOCK (EXPANDFULL $2 assignment_list_elements)
+  ;
+
+
+array_pair_list_paren_block
+  : LPAREN ()
+  | RPAREN ()
+  | COMMA  ()
+  | array_pair
+  ;
+
+array_pair_list_brack_block
+  : LBRACK ()
+  | RBRACK ()
+  | COMMA  ()
+  | array_pair
+  ;
+
+array_pair
+  : expr T_DOUBLE_ARROW expr               (append $1 $3)
+  | expr
+  | expr T_DOUBLE_ARROW AMPERSAND variable (append $1 $4)
+  | AMPERSAND variable                     (identity $2)
+  ;
+
+encaps_list
+  : encaps_list encaps_var                (append $1 $2)
+  | encaps_list T_ENCAPSED_AND_WHITESPACE
+  | encaps_var
+  | T_ENCAPSED_AND_WHITESPACE encaps_var  (identity $2)
+  ;
+
+encaps_var
+  : T_VARIABLE                            (EXPANDTAG (VARIABLE-TAG $1 nil nil))
+  | T_VARIABLE BRACK_BLOCK                (append (EXPANDTAG (VARIABLE-TAG $1 nil nil))
+                                                  (EXPANDFULL $2 encaps_var_offset_brack_block))
+  | T_VARIABLE T_OBJECT_OPERATOR T_STRING (EXPANDTAG (VARIABLE-TAG $1 nil nil))
+  | BRACE_BLOCK                           (EXPANDFULL $1 variable_brace_block)
+ ;; TODO: expressions inside ${} inside heredocs are not supported.
+  ;; | T_DOLLAR_OPEN_CURLY_BRACES expr RBRACE
+  ;; | T_DOLLAR_OPEN_CURLY_BRACES T_STRING_VARNAME RBRACE
+  ;; | T_DOLLAR_OPEN_CURLY_BRACES T_STRING_VARNAME LBRACK expr RBRACK RBRACE
+  ;; | T_CURLY_OPEN variable RBRACE
+  ;
+
+encaps_var_offset_brack_block
+  : LBRACK encaps_var_offset RBRACK (identity $2)
+  ;
+
+encaps_var_offset
+  : T_STRING   ()
+  | T_LNUMBER  ()
+  | T_VARIABLE (VARIABLE-TAG $1 nil nil)
+  ;
+
+internal_functions_in_yacc
+  : T_ISSET PAREN_BLOCK (EXPANDFULL $2 isset_variables)
+  | T_EMPTY PAREN_BLOCK (EXPANDFULL $2 expr)
+  | T_INCLUDE expr      ()
+  | T_INCLUDE_ONCE expr ()
+  | T_EVAL PAREN_BLOCK  ()
+  | T_REQUIRE expr      ()
+  | T_REQUIRE_ONCE expr ()
+  ;
+
+isset_variables
+  : RPAREN                ()
+  | LPAREN isset_variable (identity $2)
+  | COMMA isset_variable  (identity $2)
+  ;
+
+isset_variable
+  : expr
+  ;
+
+class_name_scalar
+  : class_name T_PAAMAYIM_NEKUDOTAYIM T_CLASS (concat $1 $2 $3)
+  ;
+
+%%
+
+;;;
+;;; Action helpers
+;;;
+(defun semantic-php-wy-normalize-qualified-name (name)
+  "Return NAME without leading backslash."
+  (if (equal "\\" (substring name 0 1))
+      (substring name 1)
+    name))
+
+;;;
+;;; Define lexical analyzers
+;;;
+(define-lex-simple-regex-analyzer semantic-php-wy-integer-analyzer
+  "Regular expression matching integer literals in PHP.
+
+Known limitation: PHP recognizes an integer literals as floating-point
+when the represented value exceeds the capacity of the system's
+integer type.
+
+The expression tries to accurately match T_LNUMBER so this looks
+different from semantic-lex-number-expression. See the '>' sections
+in below grammar to see how the expression is contrived.
+
+  integer-literal::
+    decimal-literal
+    octal-literal
+    hexadecimal-literal
+    binary-literal
+
+    decimal-literal::
+      nonzero-digit
+      decimal-literal   digit
+    > [1-9][0-9]*
+
+    octal-literal::
+      0
+      octal-literal   octal-digit
+    > 0[0-7]+
+
+    hexadecimal-literal::
+      hexadecimal-prefix   hexadecimal-digit
+      hexadecimal-literal   hexadecimal-digit
+
+    hexadecimal-prefix:: one of
+      0x  0X
+    > \\(0x\\|0X\\)[0-9a-fA-F]+
+
+    binary-literal::
+      binary-prefix   binary-digit
+      binary-literal   binary-digit
+
+    binary-prefix:: one of
+      0b  0B
+    > \\(0b\\|0B\\)[01]+
+
+    digit:: one of
+      0  1  2  3  4  5  6  7  8  9
+    > [0-9]+
+
+    nonzero-digit:: one of
+      1  2  3  4  5  6  7  8  9
+    > [1-9]+
+
+    octal-digit:: one of
+      0  1  2  3  4  5  6  7
+    > [1-7]+
+
+    hexadecimal-digit:: one of
+      0  1  2  3  4  5  6  7  8  9
+      a  b  c  d  e  f
+      A  B  C  D  E  F
+    > [0-9a-zA-Z]+
+
+    binary-digit:: one of
+        0  1
+    > [01]+"
+    (concat
+     "\\<\\("
+              "[1-9][0-9]*"
+     "\\|"    "0[0-7]+"
+     "\\|"    "\\(0x\\|0X\\)[0-9a-fA-F]+"
+     "\\|"    "\\(0b\\|0B\\)[01]+"
+     "\\|"    "0+"
+     "\\)\\>")
+  'T_LNUMBER)
+
+(define-lex-simple-regex-analyzer semantic-php-wy-float-analyzer
+  "Regular expression matching floating-point literals in PHP.
+
+The expression tries to accurately match T_DNUMBER so this looks
+different from semantic-lex-number-expression. See the '>' sections
+in below grammar to see how the expression is contrived.
+
+  floating-literal::
+    fractional-literal   exponent-partopt
+    digit-sequence   exponent-part
+  > \\([0-9]*[.][0-9]+\\|[0-9]+[.]\\)\\(?:[eE][-+]*[0-9]+\\)
+  > [0-9]+[eE][-+]*[0-9]+
+
+  fractional-literal::
+    digit-sequenceopt . digit-sequence
+    digit-sequence .
+  > [0-9]*[.][0-9]+
+  > [0-9]+[.]
+
+  exponent-part::
+    e  signopt   digit-sequence
+    E  signopt   digit-sequence
+  > [eE][-+]*[0-9]+
+
+  sign:: one of
+    +  -
+  > [-+]
+
+  digit-sequence::
+    digit
+    digit-sequence   digit
+  > [0-9]+"
+  (concat
+   "\\(" "\\([0-9]*[.][0-9]+\\|[0-9]+[.]\\)\\(?:[eE][-+]*[0-9]+\\)"
+     "\\|" "[0-9]+[eE][-+]*[0-9]+"
+     "\\|" "[0-9]*[.][0-9]+"
+     "\\|" "[0-9]+[.]"
+     "\\)")
+  'T_DNUMBER)
+
+(define-lex-analyzer semantic-php-wy-cast-analyzer
+  "Analyzer matching T_*_CAST tokens."
+  (looking-at "(\\(int\\|double\\|string\\|array\\|object\\|bool\\|unset\\))")
+  (semantic-lex-push-token
+   (semantic-lex-token (intern (concat "T_" (upcase (match-string 1)) "_CAST"))
+                       (match-beginning 0) (match-end 0))))
+
+(define-lex-regex-analyzer semantic-php-wy-encapsed-and-whitespace-analyzer
+  "Analyzer matching T_ENCAPSED_AND_WHITESPACE between variable tokens inside strings.
+
+This matches everything except interpolated variables. Adjacent tokens are merged."
+  "\\(.*\\)[$][a-zA-Z_]"
+  (if (eq (semantic-lex-token-class (car semantic-lex-token-stream))
+          'T_ENCAPSED_AND_WHITESPACE)
+      ;; Merge the token with previous token if it's the same class,
+      ;; this analyzer does not scan multiple lines.
+      (let ((bounds-end (match-end 1)))
+        (setq semantic-lex-end-point bounds-end)
+        (setcdr (semantic-lex-token-bounds (car semantic-lex-token-stream)) bounds-end))
+    (semantic-lex-push-token
+     (semantic-lex-token
+      'T_ENCAPSED_AND_WHITESPACE (match-beginning 1) (match-end 1)))))
+
+(define-lex-regex-analyzer semantic-php-wy-encapsed-and-whitespace-analyzer-2
+  "Regular expression matching T_ENCAPSED_AND_WHITESPACE to the end of the line.
+
+This analyzer must always run after
+`semantic-php-wy-encapsed-and-whitespace-analyzer' and exists to match the
+encapsed token to the end of string to prevent unmatched
+syntax. Adjacent tokens are merged."
+  ".+"
+  ;; Language wants whitespaces.  Create a token for it.
+  (if (eq (semantic-lex-token-class (car semantic-lex-token-stream))
+          'T_ENCAPSED_AND_WHITESPACE)
+      ;; Merge the token with previous token if it's the same class,
+      ;; this analyzer does not scan multiple lines.
+      (let ((bounds-end (match-end 0)))
+        (setq semantic-lex-end-point bounds-end)
+        (setcdr (semantic-lex-token-bounds (car semantic-lex-token-stream)) bounds-end))
+    (semantic-lex-push-token
+     (semantic-lex-token
+      'T_ENCAPSED_AND_WHITESPACE (match-beginning 0) (match-end 0)))))
+
+(define-lex-analyzer semantic-php-wy-open-close-tag-analyzer
+  "Detect and create tokens for open/close tags"
+  (looking-at (concat
+               "\\(" "<[?%]"    ;; T_OPEN_TAG
+               "\\|" "<[?%]php" ;; T_OPEN_TAG (non-short)
+               "\\|" "<[?%]="   ;; T_OPEN_TAG_WITH_ECHO
+               "\\|" "[?%]>"    ;; T_CLOSE_TAG
+               "\\)"))
+  (cond ((looking-at "\\(<[?%]=\\)")
+         (semantic-lex-push-token
+          (semantic-lex-token 'T_OPEN_TAG_WITH_ECHO
+                              (point) (match-end 0))))
+        ((looking-at "\\(<[?%]php\\)")
+         (semantic-lex-push-token
+          (semantic-lex-token 'T_OPEN_TAG
+                              (point) (match-end 0))))
+        ((looking-at "\\(<[?%]\\)")
+         (semantic-lex-push-token
+          (semantic-lex-token 'T_OPEN_TAG
+                              (point) (match-end 0))))
+        ((looking-at "\\([?%]>\\)")
+         (semantic-lex-push-token
+          (semantic-lex-token 'T_CLOSE_TAG
+                              (point) (match-end 0))))))
+
+(define-lex-analyzer semantic-php-wy-inline-html-analyzer
+  "Detect and create tokens for inline HTML"
+  ;; If at the beginning of buffer or,
+  ;; the last token in the stream is a close tag.
+  (or (= 1 semantic-lex-end-point)
+      (equal 'T_CLOSE_TAG (semantic-lex-token-class (car semantic-lex-token-stream))))
+  (semantic-lex-push-token
+   (semantic-lex-token 'T_INLINE_HTML
+                       (point)
+                       ;; The inline HML ends before the next close tag
+                       ;; Or else, the end of the buffer.
+                       (save-excursion
+                         (if (search-forward-regexp "\\(<[?%]\\)" nil t)
+                             (match-beginning 0)
+                           (point-max))))))
+
+(define-lex-analyzer semantic-php-wy-nowdoc-analyzer
+  "Detect and create tokens for nowdocs"
+  (looking-at "<<<'\\(\\(\\sw\\|\\s_\\)+\\)'")
+  (let ((startend (match-end 0))
+        (docname (match-string 1)))
+    ;; Match start of nowdoc
+    (semantic-lex-push-token
+     (semantic-lex-token 'T_START_HEREDOC
+                         (point)
+                         startend))
+    ;; Match body of nowdoc
+    (if (search-forward-regexp (concat "^\\(" docname "\\)\\($\\|;\\)") nil t)
+        (progn
+          (semantic-lex-push-token
+           (semantic-lex-token 'T_ENCAPSED_AND_WHITESPACE
+                               (1+ startend)
+                               (1- (match-beginning 1))))
+          ;; Emit end of nowdoc
+          (semantic-lex-push-token
+           (semantic-lex-token 'T_END_HEREDOC
+                               (match-beginning 1)
+                               (match-end 1))))
+      ;; Could not find end of nowdoc, emit a phony end tag
+      (semantic-lex-push-token
+       (semantic-lex-token 'T_END_HEREDOC startend startend)))))
+
+(define-lex-analyzer semantic-php-wy-heredoc-analyzer
+  "Detect and create tokens for heredocs"
+  (looking-at "<<<\\(\\(\\sw\\|\\s_\\)+\\)")
+  (let ((docname (match-string 1))      ;; Name of the heredoc (NAME in <<<NAME)
+        (start-beginning (point))       ;; Beginning of the start token
+        (start-end (match-end 0))       ;; End of the start token
+        end-beginning                   ;; Beginning of the end tokencond
+        end-end)                        ;; End of the end token
+
+    ;; Emit start of heredoc
+    (semantic-lex-push-token
+     (semantic-lex-token 'T_START_HEREDOC start-beginning start-end))
+
+    ;; Find end of heredoc
+    (if (search-forward-regexp (concat "^\\(" docname "\\)\\($\\|;\\)") nil t)
+        ;; End of heredoc found, save the position and emit the end
+        ;; token alter
+        (progn
+          (setq end-beginning (match-beginning 1)
+                end-end (match-end 1))
+
+          (dolist (token (funcall 'semantic-php-wy-string-lexer (1+ start-end) (1- end-beginning)))
+            (semantic-lex-push-token token)))
+
+      ;; No heredoc end found, emit a phony end token
+      (setq end-beginning start-end
+            end-end start-end))
+
+    ;; Emit end of heredoc
+    (semantic-lex-push-token
+     (semantic-lex-token 'T_END_HEREDOC end-beginning end-end))))
+
+
+;;;
+;;; Define the lexer
+;;;
+(define-lex semantic-php-wy-lexer
+  "Lexical analyzer that handles PHP buffers.
+It ignores whitespaces, newlines and comments."
+  semantic-lex-ignore-whitespace
+  semantic-lex-ignore-newline
+  semantic-lex-ignore-comments
+
+  semantic-php-wy-open-close-tag-analyzer
+  semantic-php-wy-inline-html-analyzer
+  semantic-php-wy-float-analyzer
+  semantic-php-wy-integer-analyzer
+  semantic-php-wy-cast-analyzer
+  semantic-php-wy-nowdoc-analyzer
+  semantic-php-wy-heredoc-analyzer
+
+  semantic-php-wy--<variable>-regexp-analyzer
+  semantic-php-wy--<punctuation>-string-analyzer
+  semantic-php-wy--<keyword>-keyword-analyzer
+  semantic-php-wy--<block>-block-analyzer
+  semantic-php-wy--<string>-regexp-analyzer
+  semantic-php-wy--<quoted-string>-sexp-analyzer
+  semantic-php-wy--<mb>-regexp-analyzer
+
+  semantic-lex-default-action)
+
+(define-lex semantic-php-wy-string-lexer
+  "Lexical analyzer that handles PHP heredoc contents."
+
+  semantic-lex-ignore-whitespace
+  semantic-lex-ignore-newline
+
+  semantic-php-wy--<variable>-regexp-analyzer
+  semantic-php-wy-encapsed-and-whitespace-analyzer
+  semantic-php-wy-encapsed-and-whitespace-analyzer-2
+
+  semantic-lex-default-action)
+
+;;; semantic-php.wy ends here
