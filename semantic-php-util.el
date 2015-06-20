@@ -21,10 +21,6 @@
 ;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 ;; 02110-1301, USA.
 
-(require 'semantic-php)
-(require 'semantic/grammar)
-(require 'test/php-faux-mode)
-
 (defun semantic-php-util-batch-scan-project ()
   "Scan project recursively for source files in batch mode.
 
@@ -42,7 +38,8 @@ parser can parse source files of common frameworks and libraries."
          (progress 0)
          (tagcount 0))
 
-    (edep-mode)
+    (require 'semantic-php)
+    (require 'test/php-faux-mode)
 
     (dolist (file files)
       ;; Open the file in a buffer
@@ -91,6 +88,8 @@ Returns a list of absolute file names."
                                "/semantic-php.wy")))
     (with-temp-buffer
       (find-file grammar-path)
+
+      (require 'semantic/grammar)
       (semantic-mode)
       (semantic-grammar-create-package t))))
 
