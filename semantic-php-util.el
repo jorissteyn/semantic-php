@@ -48,6 +48,9 @@ parser can parse source files of common frameworks and libraries."
       ;; Load fake php-mode
       (php-mode)
 
+      ;; Enable semantic-php
+      (semantic-php-default-setup)
+
       ;; Parse the file
       (setq tagcount (+ tagcount (length
                                   (wisent-parse-region (point-min) (point-max)))))

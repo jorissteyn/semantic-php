@@ -1,4 +1,4 @@
-;;; php-faux-mode.el --- Dummy major mode for tests -*- lexical-binding: t; -*-
+;;; cast.el --- Test cases for casts -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2014 Joris Steyn
 
@@ -21,14 +21,29 @@
 ;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 ;; 02110-1301, USA.
 
-;; Function overrides for semantic are only activated when the major
-;; mode is named 'php-mode'. For the purpose of the test suite, we
-;; enable a dummy php-mode because nothing in semantic-php depends on
-;; a specific php-mode version.
+(require 'semantic-php)
+(require 'ert)
+(require 'test/php-faux-mode)
 
-(unless (featurep 'php-mode)
-  (define-derived-mode php-mode fundamental-mode
-    (setq mode-name "PHP-FAUX")))
+(ert-deftest semantic-php-test-parser-cast-variables ()
+  "Test parsing of casted variables"
+  (with-test-buffer
+   "(int)
+    (double)
+    (string)
+    (array)
+    (object)
+    (bool)
+    (unset)"
+   (with-lex-tokens
+    (dolist (expected '(T_INT_CAST
+                        T_DOUBLE_CAST
+                        T_STRING_CAST
+                        T_ARRAY_CAST
+                        T_OBJECT_CAST
+                        T_BOOL_CAST
+                        T_UNSET_CAST))
+      (should (equal expected (semantic-lex-token-class (pop tokens))))))))
 
-(provide 'test/php-faux-mode)
-;;; test/php-faux-mode.el ends here
+(provide 'test/parser/cast)
+;;; cast.el ends here

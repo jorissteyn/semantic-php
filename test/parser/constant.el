@@ -1,4 +1,4 @@
-;;; php-faux-mode.el --- Dummy major mode for tests -*- lexical-binding: t; -*-
+;;; constant.el --- Test cases for constant tags -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2014 Joris Steyn
 
@@ -21,14 +21,21 @@
 ;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 ;; 02110-1301, USA.
 
-;; Function overrides for semantic are only activated when the major
-;; mode is named 'php-mode'. For the purpose of the test suite, we
-;; enable a dummy php-mode because nothing in semantic-php depends on
-;; a specific php-mode version.
+(require 'semantic-php)
+(require 'ert)
+(require 'test/php-faux-mode)
 
-(unless (featurep 'php-mode)
-  (define-derived-mode php-mode fundamental-mode
-    (setq mode-name "PHP-FAUX")))
+(ert-deftest semantic-php-test-parser-constant-tags()
+  "Test non-class constants"
+  (with-test-buffer
+   "const TESTA = 123, TESTB = 'abc';"
+   (with-semantic-tags
+    (with-semantic-tag (nth 0 tags)
+                       (should (equal "TESTA" tag-name))
+                       (should (equal 'constant tag-class)))
+    (with-semantic-tag (nth 1 tags)
+                       (should (equal "TESTB" tag-name))
+                       (should (equal 'constant tag-class))))))
 
-(provide 'test/php-faux-mode)
-;;; test/php-faux-mode.el ends here
+(provide 'test/parser/constant)
+;;; constant.el ends here
