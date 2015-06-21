@@ -1,4 +1,4 @@
-;;; semantic-php-util.el --- Batch utils for semantic-php -*- lexical-binding: t; -*-
+;;; semantic-php-util.el --- Batch utils for semantic-php -*- lexical-binding: nil; -*-
 
 ;; Copyright (C) 2014 Joris Steyn
 
@@ -20,6 +20,14 @@
 ;; along with this file; if not, write to the Free Software
 ;; Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
 ;; 02110-1301, USA.
+
+;;; Code:
+
+;; Note: lexical binding is off because `update-directory-autoloads'
+;; depends on dynamic scoping.
+
+(require 'semantic/decorate/mode)
+(require 'semantic/edit)
 
 (defun semantic-php-util-batch-scan-project ()
   "Scan project recursively for source files in batch mode.
@@ -50,6 +58,7 @@ parser can parse source files of common frameworks and libraries."
 
       ;; Enable semantic-php
       (semantic-php-default-setup)
+      (semantic-lex-init)
 
       ;; Parse the file
       (setq tagcount (+ tagcount (length
@@ -95,6 +104,58 @@ Returns a list of absolute file names."
       (require 'semantic/grammar)
       (semantic-mode)
       (semantic-grammar-create-package t))))
+
+(defun semantic-php-util-generate-autoloads ()
+  "Generate loaddefs.el for this package."
+  (let* ((package-path (or (getenv "PACKAGE_PATH")
+                           default-directory))
+         (generated-autoload-file (expand-file-name "loaddefs.el" package-path)))
+    (update-directory-autoloads package-path)))
+
+;;;###autoload
+(define-minor-mode semantic-php-disco-mode
+  "Decoration mode for semantic-php development."
+  :lighter " *DISCO*"
+  :group 'semantic-php
+  :require 'semantic-php
+  (cond
+   ;; Enable the minor mode
+   (semantic-php-disco-mode
+    ;; Show underline for all tags in the buffer
+    (setq semantic-decoration-styles
+          '(("semantic-php-tag-boundary" . t)))
+
+    (semantic-decoration-mode 1)
+
+    ;; Red underline for unmatched syntax
+    (semantic-show-unmatched-syntax-mode 1)
+
+    ;; Show active tag in buffer header
+    (semantic-stickyfunc-mode 1)
+
+    ;; Highlight edits
+    (setq semantic-edits-verbose-flag t)
+    (semantic-highlight-edits-mode 1))
+   ;; Disable the minor mode
+   (t (semantic-decoration-mode -1)
+      (semantic-show-unmatched-syntax-mode -1)
+      (semantic-stickyfunc-mode -1)
+      (semantic-highlight-edits-mode -1))))
+
+;;;
+;;; Custom decoration style for disco-mode
+;;;
+(define-semantic-decoration-style semantic-php-tag-boundary
+  "Place an overline above every generated tag.")
+
+(defun semantic-php-tag-boundary-p-default (tag)
+  "Return non-nil for any TAG."
+  t)
+
+(defun semantic-php-tag-boundary-highlight-default (tag)
+  "Highlight the first line of TAG as a boundary."
+  (semantic-tag-boundary-highlight-default tag))
+
 
 (provide 'semantic-php-util)
 ;;; semantic-php-util.el ends here

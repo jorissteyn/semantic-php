@@ -59,6 +59,8 @@ buffer."
             ;; a database for the test buffer. If we don't do this,
             ;; semanticdb-current-database will be nil, and much of the
             ;; context analysis won't work.
+            (require 'semantic/db-mode)
+
             (semanticdb-semantic-init-hook-fcn)
             (semantic-force-refresh)
 
@@ -121,6 +123,7 @@ buffer."
            tag-overlay (semantic-tag-overlay tag))
      ,@body))
 
+(require 'test/context)
 (require 'test/lexer)
 (require 'test/parser/cast)
 (require 'test/parser/class)

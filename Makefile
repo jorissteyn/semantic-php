@@ -3,7 +3,7 @@ EMACS_CMD := $(EMACS) -Q -batch -L .
 EL  := semantic-php.el semantic-php-wy.el
 ELC := $(EL:.el=.elc)
 
-dist: parser-create
+dist: parser autoload
 
 clean:
 	rm -f $(ELC)
@@ -19,7 +19,10 @@ test: clean
 parser-test:
 	$(EMACS_CMD) -l semantic-php-util.el -f semantic-php-util-batch-scan-project
 
-parser-create:
+parser:
 	$(EMACS_CMD) -l semantic-php-util.el -f semantic-php-util-compile-grammar
 
-.PHONY: clean compile test parse dist autoload
+autoload:
+	$(EMACS_CMD) -l semantic-php-util.el -f semantic-php-util-generate-autoloads
+
+.PHONY: dist clean compile test parser-test parser autoload

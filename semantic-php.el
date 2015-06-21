@@ -27,7 +27,14 @@
 
 ;;; Commentary:
 
-;; Package description.
+;; Installation from VCS for development purposes:
+;;
+;; 1. Clone the semantic-php repository
+;; 2. Run 'make dist' to generate the parser and autoload definitions
+;; 3. Load the generated semantic-php/loaddefs.el in your init file:
+;;
+;;    (add-to-list 'load-path "~/path/to/semantic-php")
+;;    (load "~/path/to/semantic-php/loaddefs.el")
 
 ;;; Code:
 
@@ -37,9 +44,10 @@
 (require 'semantic/ctxt)
 (require 'semantic/sort)
 
-;;;
-;;; Setup function for the semantic-php
-;;;
+;;;###autoload
+(add-hook 'php-mode-hook 'semantic-php-default-setup)
+
+;;;###autoload
 (defun semantic-php-default-setup ()
   "Setup semantic-php in the current buffer"
   (semantic-php-wy--install-parser)
