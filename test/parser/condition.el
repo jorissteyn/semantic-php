@@ -91,5 +91,16 @@ endswitch;"
     (with-semantic-tag (nth 2 tags) (should (equal "$c" tag-name)))
     (with-semantic-tag (nth 3 tags) (should (equal "$d" tag-name))))))
 
+(ert-deftest semantic-php-test-parser-condition-if-statement-1()
+  "Test parsing of if-statements (variation)"
+  (with-test-buffer
+   "
+if ($a !== null) {
+    $b;
+}"
+   (with-semantic-tags
+    (with-semantic-tag (nth 0 tags) (should (equal "$a" tag-name)))
+    (with-semantic-tag (nth 1 tags) (should (equal "$b" tag-name))))))
+
 (provide 'test/parser/condition)
 ;;; condition.el ends here

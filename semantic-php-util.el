@@ -53,6 +53,8 @@ parser can parse source files of common frameworks and libraries."
       ;; Open the file in a buffer
       (find-file file)
 
+      (message "Parsing %s" file)
+
       ;; Load fake php-mode
       (php-mode)
 
