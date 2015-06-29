@@ -30,13 +30,13 @@
   (with-test-buffer
    "
 try {
-    $a;
+    $a = 1;
 } catch (Exception $b) {
-    $c;
+    $c = 1;
 } catch (Exception $d) {
-    $e;
+    $e = 1;
 } finally {
-    $f;
+    $f = 1;
 }"
    (with-semantic-tags
     (with-semantic-tag (nth 0 tags) (should (equal "$a" tag-name)))

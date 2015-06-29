@@ -29,9 +29,32 @@
   "Test tags for regular class declarations"
   (with-test-buffer
    "class Test {}"
-   (with-semantic-first-tag (should (equal "Test" tag-name))
-                            (should (equal 'type tag-class))
-                            (should (equal "class" (plist-get tag-attribs :type))))))
+   (with-semantic-first-tag
+    (should (equal "Test" tag-name))
+    (should (equal 'type tag-class))
+    (should (equal "class" (plist-get tag-attribs :type)))
+    (should (equal [7 20] tag-overlay))
+    (should (equal 'class_declaration_statement tag-reparse-symbol)))))
+
+(ert-deftest semantic-php-test-parser-class-declarations-conditional()
+  "Test tags for conditional class declarations"
+  (with-test-buffer
+   "
+if (true) {
+    class Test {}
+}
+if (true):
+    class Test {}
+endif;
+"
+   (with-semantic-tags
+    (with-semantic-tag (nth 0 tags)
+                       (should (equal [24 37] tag-overlay))
+                       (should (equal 'class_declaration_statement tag-reparse-symbol)))
+
+    (with-semantic-tag (nth 1 tags)
+                       (should (equal [55 68] tag-overlay))
+                       (should (equal 'class_declaration_statement tag-reparse-symbol))))))
 
 (ert-deftest semantic-php-test-parser-class-inheritance()
   "Test class declarations inheritance (extends)"
@@ -43,7 +66,11 @@
   "Test classes implementing interfaces (implements)"
   (with-test-buffer
    "class Test implements TestA, TestB {}"
-   (with-semantic-first-tag (should (equal '("TestA" "TestB") (plist-get tag-attribs :interfaces))))))
+   (with-semantic-first-tag
+    (should (equal '("TestA" "TestB") (plist-get tag-attribs :interfaces)))
+    (should (equal [7 44] tag-overlay))
+    (should (equal 'class_declaration_statement tag-reparse-symbol)))))
+
 
 (ert-deftest semantic-php-test-parser-class-type-modifiers()
   "Test class declaration with type modifiers (abstract, final)"

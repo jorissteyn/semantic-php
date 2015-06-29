@@ -44,6 +44,7 @@ class A {
    (search-forward "AliasA")))
 
 (ert-deftest edep-test-context-scope ()
+  :expected-result :failed
   "Test scope calculation"
   (with-saved-test-buffer
    "

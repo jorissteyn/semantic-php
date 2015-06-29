@@ -29,24 +29,22 @@
   "Test empty() construct"
   (with-test-buffer
    "empty($test);"
-   (with-semantic-first-tag (should (equal "$test" tag-name))
-                            (should (equal 'variable tag-class)))))
+   (with-semantic-tags
+    (should (equal 0 (length tags))))))
 
 (ert-deftest semantic-php-test-parser-misc-isset()
   "Test isset() construct"
   (with-test-buffer
-   "isset($testA, $testB);"
+   "isset($a, $b);"
    (with-semantic-tags
-    (with-semantic-tag (nth 0 tags) (should (equal "$testA" tag-name)))
-    (with-semantic-tag (nth 1 tags) (should (equal "$testB" tag-name))))))
+    (should (equal 0 (length tags))))))
 
-;; TODO
 (ert-deftest semantic-php-test-parser-misc-eval()
   "Test eval statements"
   (with-test-buffer
-   "eval('test');")
-  (with-test-buffer
-   "eval($test);"))
+   "eval($test = get());"
+   (with-semantic-tags
+    (should (equal 0 (length tags))))))
 
 ;; TODO
 (ert-deftest semantic-php-test-parser-misc-include-require()
@@ -56,27 +54,21 @@
   (with-test-buffer
    "require ($test);")
   (with-test-buffer
-   "include 'test';")
+   "include 'test.php';"
+   (with-semantic-first-tag
+    (should (equal "test.php" tag-name))))
   (with-test-buffer
-   "include ('test');"))
+   "include ('test.php');"
+   (with-semantic-first-tag
+    (should (equal "test.php" tag-name)))))
 
 (ert-deftest semantic-php-test-parser-misc-return-statements()
   "Test return statements"
   (with-test-buffer
-   "return $testA . $testB;"
-   (with-semantic-tags
-    (with-semantic-tag (nth 0 tags) (should (equal "$testA" tag-name)))
-    (with-semantic-tag (nth 1 tags) (should (equal "$testB" tag-name)))))
-  (with-test-buffer
-   "
-function test() {
-    return $testA . $testB;
-}"
+   "function test() { return function() {}; }"
    (with-semantic-first-tag
-    (let ((members (plist-get tag-attribs :members)))
-      (should (equal 2 (length members)))
-      (with-semantic-tag (nth 0 members) (should (equal "$testA" tag-name)))
-      (with-semantic-tag (nth 1 members) (should (equal "$testB" tag-name)))))))
+    (should (equal 'function tag-class))
+    (should (equal 1 (length (plist-get tag-attribs :members)))))))
 
 (provide 'test/parser/misc)
 ;;; misc.el ends here

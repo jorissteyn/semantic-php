@@ -28,22 +28,22 @@
 (ert-deftest semantic-php-test-parser-overlay-variable()
   "Test overlay for variable tags"
   (with-test-buffer
-   "$tag;"
+   "$tag = function(){};"
    (with-semantic-first-tag
-    (should (equal 'simple_variable (plist-get tag-props 'reparse-symbol)))
+    (should (equal 'simple_variable tag-reparse-symbol))
     (should (equal [7 11] tag-overlay)))))
 
 (ert-deftest semantic-php-test-parser-overlay-variable-in-expression()
   "Test overlay for variables in expressions"
   (with-test-buffer
-   "$testA * $testB;"
+   "$testA  = 1 * $testB = 2;"
    (with-semantic-tags
     (with-semantic-tag (nth 0 tags)
                        (should (equal [7 13] tag-overlay))
-                       (should (equal 'simple_variable (plist-get tag-props 'reparse-symbol))))
+                       (should (equal 'simple_variable tag-reparse-symbol)))
     (with-semantic-tag (nth 1 tags)
-                       (should (equal [16 22] tag-overlay))
-                       (should (equal 'simple_variable (plist-get tag-props 'reparse-symbol)))))))
+                       (should (equal [21 27] tag-overlay))
+                       (should (equal 'simple_variable tag-reparse-symbol))))))
 
 (ert-deftest semantic-php-test-parser-overlay-namespace()
   "Test overlay for namespace tags"
@@ -51,7 +51,7 @@
    "namespace Test;"
    (with-semantic-first-tag
     (should (equal [7 22] tag-overlay))
-    (should (equal 'top_statement (plist-get tag-props 'reparse-symbol))))))
+    (should (equal 'top_statement tag-reparse-symbol)))))
 
 (provide 'test/parser/overlay)
 ;;; overlay.el ends here

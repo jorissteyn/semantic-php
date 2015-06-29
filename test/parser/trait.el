@@ -31,7 +31,9 @@
    "trait Test {}"
    (with-semantic-first-tag (should (equal "Test" tag-name))
                             (should (equal 'type tag-class))
-                            (should (equal "trait" (plist-get tag-attribs :type))))))
+                            (should (equal "trait" (plist-get tag-attribs :type)))
+                            (should (equal [7 20] tag-overlay))
+                            (should (equal 'trait_declaration_statement tag-reparse-symbol)))))
 
 (ert-deftest semantic-php-test-parser-trait-inheritance()
   "Test trait declarations inheritance (extends)"

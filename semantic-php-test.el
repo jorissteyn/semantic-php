@@ -114,13 +114,16 @@ buffer."
 (defmacro with-semantic-tag (tag &rest body)
   "Analyze given TAG and execute BODY"
   `(let ((tag ,tag)
-         tag-name tag-class tag-type tag-attribs tag-props tag-overlay)
+         tag-name tag-class tag-type tag-attribs tag-props
+         tag-members tag-overlay tag-reparse-symbol)
      (setq tag-name (semantic-tag-name tag)
            tag-class (semantic-tag-class tag)
            tag-type (semantic-tag-type tag)
            tag-attribs (semantic-tag-attributes tag)
            tag-props (semantic-tag-properties tag)
-           tag-overlay (semantic-tag-overlay tag))
+           tag-members (semantic-tag-components tag)
+           tag-overlay (semantic-tag-overlay tag)
+           tag-reparse-symbol (plist-get tag-props 'reparse-symbol))
      ,@body))
 
 (require 'test/context)

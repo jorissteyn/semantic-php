@@ -35,7 +35,7 @@
 %package semantic-php-wy
 %provide semantic-php-wy
 
-%languagemode php-mode
+%languagemode php-mode web-mode
 
 %{
   ;; We need a slightly bigger stack than allowed in a standard emacs
@@ -45,7 +45,7 @@
   (setq max-specpdl-size 1400)
 }
 
-%use-macros semantic-php-wy-macro { EXPANDFULL EXPANDLIST USEDECL USETYPE USEGROUP }
+%use-macros semantic-php-wy-macro { INCLUDE-TAG EXPANDLIST USEDECL USETYPE USEGROUP }
 
 ;; Terminals - literals
 %type <integer> ;; semantic-php-wy-integer-analyzer
@@ -286,6 +286,8 @@
 %start top_statement_start
 
 ;;; Required by EXPANDFULL
+%start array_pair_list_brack_block
+%start array_pair_list_paren_block
 %start assignment_list_elements
 %start case_list_brace_block
 %start catch_list_name_paren_block
@@ -298,28 +300,37 @@
 %start for_exprs_paren_block
 %start foreach_paren_block
 %start inline_use_declarations_brace_block
+%start inner_statement_list
 %start inner_statement_list_brace_block
-%start isset_variables
 %start lexical_var_list
-%start non_empty_argument_list
+%start non_empty_argument_list_paren_block
 %start optional_expr
+%start optional_expr_brack_block
 %start parameter_list
-%start top_statement_list
+%start top_statement_list_brace_block
 %start trait_adaptations_brace_block
-%start unset_variables
 %start use_declarations_brace_block
 %start variable_brace_block
 
 ;;; Required by EXPANDTAG
-%start class_const_list
+%start catch_list_name_paren_block
+%start catch_list_name_paren_block
+%start class_const_decl
+%start class_declaration_statement
+%start class_statement
+%start const_decl
 %start const_list
-%start constant
-%start encaps_var
-%start inner_statement_list
+%start function_declaration_statement
+%start interface_declaration_statement
+%start internal_functions_in_yacc
+%start lexical_var
+%start parameter
 %start property
 %start simple_variable
 %start static_var
-%start top_statement
+%start trait_alias
+%start trait_declaration_statement
+%start trait_precedence
 
 %%
 
@@ -332,16 +343,17 @@ top_statement_start
   ;
 
 reserved_non_modifiers
-  : T_INCLUDE | T_INCLUDE_ONCE | T_EVAL | T_REQUIRE | T_REQUIRE_ONCE | T_LOGICAL_OR | T_LOGICAL_XOR | T_LOGICAL_AND
-	| T_INSTANCEOF | T_NEW | T_CLONE | T_EXIT | T_IF | T_ELSEIF | T_ELSE | T_ENDIF | T_ECHO | T_DO | T_WHILE | T_ENDWHILE
-	| T_FOR | T_ENDFOR | T_FOREACH | T_ENDFOREACH | T_DECLARE | T_ENDDECLARE | T_AS | T_TRY | T_CATCH | T_FINALLY
-	| T_THROW | T_USE | T_INSTEADOF | T_GLOBAL | T_VAR | T_UNSET | T_ISSET | T_EMPTY | T_CONTINUE | T_GOTO
-	| T_FUNCTION | T_CONST | T_RETURN | T_PRINT | T_YIELD | T_LIST | T_SWITCH | T_ENDSWITCH | T_CASE | T_DEFAULT | T_BREAK
-	| T_ARRAY | T_CALLABLE | T_EXTENDS | T_IMPLEMENTS | T_NAMESPACE | T_TRAIT | T_INTERFACE | T_CLASS
+  : T_INCLUDE | T_INCLUDE_ONCE | T_EVAL | T_REQUIRE | T_REQUIRE_ONCE | T_LOGICAL_OR | T_LOGICAL_XOR | T_LOGICAL_AND     
+  | T_INSTANCEOF | T_NEW | T_CLONE | T_EXIT | T_IF | T_ELSEIF | T_ELSE | T_ENDIF | T_ECHO | T_DO | T_WHILE | T_ENDWHILE 
+  | T_FOR | T_ENDFOR | T_FOREACH | T_ENDFOREACH | T_DECLARE | T_ENDDECLARE | T_AS | T_TRY | T_CATCH | T_FINALLY         
+  | T_THROW | T_USE | T_INSTEADOF | T_GLOBAL | T_VAR | T_UNSET | T_ISSET | T_EMPTY | T_CONTINUE | T_GOTO                
+  | T_FUNCTION | T_CONST | T_RETURN | T_PRINT | T_YIELD | T_LIST | T_SWITCH | T_ENDSWITCH | T_CASE | T_DEFAULT | T_BREAK
+  | T_ARRAY | T_CALLABLE | T_EXTENDS | T_IMPLEMENTS | T_NAMESPACE | T_TRAIT | T_INTERFACE | T_CLASS                     
   ;
 
 semi_reserved
-  : reserved_non_modifiers | T_STATIC | T_ABSTRACT | T_FINAL | T_PRIVATE | T_PROTECTED | T_PUBLIC
+  : reserved_non_modifiers
+  | T_STATIC | T_ABSTRACT | T_FINAL | T_PRIVATE | T_PROTECTED | T_PUBLIC
   ;
 
 identifier
@@ -349,7 +361,7 @@ identifier
   | semi_reserved
   ;
 
-top_statement_list
+top_statement_list_brace_block
   : LBRACE        ()
   | RBRACE        ()
   | top_statement
@@ -373,16 +385,10 @@ top_statement
   | class_declaration_statement
   | trait_declaration_statement
   | interface_declaration_statement
-  | T_HALT_COMPILER PAREN_BLOCK SEMICOLON ()
-  | T_NAMESPACE namespace_name SEMICOLON
-    (EXPANDTAG (TYPE-TAG (semantic-php-wy-normalize-qualified-name $2)
-                         $1 nil nil
-                         :braceless t))
-  | T_NAMESPACE namespace_name BRACE_BLOCK
-    (EXPANDTAG (TYPE-TAG (semantic-php-wy-normalize-qualified-name $2)
-                         $1 (EXPANDFULL $3 top_statement_list) nil))
-  | T_NAMESPACE BRACE_BLOCK
-    (EXPANDTAG (TYPE-TAG "\\" $1 (EXPANDFULL $2 top_statement_list) nil))
+  | T_HALT_COMPILER PAREN_BLOCK SEMICOLON          ()
+  | T_NAMESPACE namespace_name SEMICOLON           (EXPANDTAG (TYPE-TAG $2 $1 nil nil :braceless t))
+  | T_NAMESPACE namespace_name BRACE_BLOCK         (EXPANDTAG (TYPE-TAG $2 $1 (EXPANDFULL $3 top_statement_list_brace_block) nil))
+  | T_NAMESPACE BRACE_BLOCK                        (EXPANDTAG (TYPE-TAG "\\" $1 (EXPANDFULL $2 top_statement_list_brace_block) nil))
   | T_USE mixed_group_use_declaration SEMICOLON    (identity $2)
   | T_USE use_type group_use_declaration SEMICOLON (USETYPE $3 $2)
   | T_USE use_declarations SEMICOLON               (EXPANDLIST $2)
@@ -446,13 +452,13 @@ const_list_paren_block
   ;
 
 const_list
-  : const_list COMMA const_decl (append $1 (EXPANDTAG $3))
-  | const_decl                  (EXPANDTAG $1)
+  : const_list COMMA const_decl (append $1 $3)
+  | const_decl                  (identity $1)
   ;
 
 inner_statement_list
   : ;; EMPTY
-  | inner_statement_list inner_statement (append $1 $2)
+  | inner_statement_list inner_statement (nconc $1 $2)
   ;
 
 inner_statement_list_brace_block
@@ -487,9 +493,9 @@ statement
   | T_CLOSE_TAG T_INLINE_HTML T_OPEN_TAG           ()
   | T_CLOSE_TAG T_INLINE_HTML T_OPEN_TAG_WITH_ECHO ()
   | expr SEMICOLON
-  | T_UNSET PAREN_BLOCK SEMICOLON                  (EXPANDFULL $2 unset_variables)
+  | T_UNSET PAREN_BLOCK SEMICOLON                  ()
   | T_FOREACH PAREN_BLOCK foreach_statement        (append (EXPANDFULL $2 foreach_paren_block) $3)
-  | T_DECLARE PAREN_BLOCK declare_statement        (EXPANDFULL $2 const_list_paren_block)
+  | T_DECLARE PAREN_BLOCK declare_statement        ()
   | SEMICOLON                                      ()
   | T_TRY BRACE_BLOCK catch_list finally_statement (append (EXPANDFULL $2 inner_statement_list_brace_block) $3 $4)
   | T_THROW expr SEMICOLON                         (identity $2)
@@ -498,8 +504,8 @@ statement
   ;
 
 foreach_paren_block
-  : LPAREN expr T_AS foreach_variable RPAREN                                 (append $2 $4)
-  | LPAREN expr T_AS foreach_variable T_DOUBLE_ARROW foreach_variable RPAREN (append $2 $4 $6)
+  : LPAREN expr T_AS foreach_variable RPAREN                                 (identity $4)
+  | LPAREN expr T_AS foreach_variable T_DOUBLE_ARROW foreach_variable RPAREN (append $4 $6)
   ;
 
 catch_list
@@ -510,7 +516,7 @@ catch_list
   ;
 
 catch_list_name_paren_block
-  : LPAREN name T_VARIABLE RPAREN (VARIABLE-TAG $3 $2 nil)
+  : LPAREN name T_VARIABLE RPAREN (EXPANDTAG (VARIABLE-TAG $3 $2 nil))
   ;
 
 finally_statement
@@ -531,8 +537,8 @@ unset_variable
 
 function_declaration_statement
   : function returns_ref T_STRING PAREN_BLOCK return_type BRACE_BLOCK
-    (FUNCTION-TAG $3 $5 (EXPANDFULL $4 parameter_list)
-                  :members (EXPANDFULL $6 inner_statement_list_brace_block))
+    (EXPANDTAG (FUNCTION-TAG $3 $5 (EXPANDFULL $4 parameter_list)
+                             :members (EXPANDFULL $6 inner_statement_list_brace_block)))
   ;
 
 is_reference
@@ -547,28 +553,28 @@ is_variadic
 
 class_declaration_statement
   : class_modifiers T_CLASS T_STRING extends_from implements_list BRACE_BLOCK
-    (TYPE-TAG $3 $2
-              (EXPANDFULL $6 class_statement_list)
-              (cons $4 $5) ;; (extends_from . implements_list)
-              :typemodifiers $1)
+    (EXPANDTAG (TYPE-TAG $3 $2
+                         (EXPANDFULL $6 class_statement_list)
+                         (cons $4 $5) ;; (extends_from . implements_list)
+                         :typemodifiers $1))
   | T_CLASS T_STRING extends_from implements_list BRACE_BLOCK
-    (TYPE-TAG $2 $1
-              (EXPANDFULL $5 class_statement_list)
-              (cons $3 $4)) ;; (extends_from . implements_list)
+    (EXPANDTAG (TYPE-TAG $2 $1
+                         (EXPANDFULL $5 class_statement_list)
+                         (cons $3 $4))) ;; (extends_from . implements_list)
   ;
 
 trait_declaration_statement
   : T_TRAIT T_STRING extends_from implements_list BRACE_BLOCK
-    (TYPE-TAG $2 $1
-              (EXPANDFULL $5 class_statement_list)
-              (cons $3 $4))
+    (EXPANDTAG (TYPE-TAG $2 $1
+                         (EXPANDFULL $5 class_statement_list)
+                         (cons $3 $4)))
   ;
 
 interface_declaration_statement
   : T_INTERFACE T_STRING interface_extends_list BRACE_BLOCK
-    (TYPE-TAG $2 $1
-              (EXPANDFULL $4 class_statement_list)
-              (cons $3 nil))
+    (EXPANDTAG (TYPE-TAG $2 $1
+                         (EXPANDFULL $4 class_statement_list)
+                         (cons $3 nil)))
   ;
 
 class_modifiers
@@ -675,19 +681,19 @@ parameter_list
 
 parameter
   : optional_type is_reference is_variadic T_VARIABLE
-    (VARIABLE-TAG $4 $1 ;; T_VARIABLE optional_type
+    (EXPANDTAG (VARIABLE-TAG $4 $1 ;; T_VARIABLE optional_type
                   nil   ;; no default value
                   ;; is_reference / is_variadic modifiers
-                  :typemodifiers (remq nil (list $2 $3)))
+                  :typemodifiers (remq nil (list $2 $3))))
   | optional_type is_reference is_variadic T_VARIABLE ASSIGN expr
-    (VARIABLE-TAG $4 $1 ;; T_VARIABLE optional_type
-                  (cond ((and (semantic-tag-p $6)
-                              (memq (semantic-tag-class $6) '(code constant)))
-                         (semantic-tag-name $6))
-                        ((stringp $6)
-                         (identity $6)))
-                  ;; is_reference / is_variadic modifiers
-                  :typemodifiers (remq nil (list $2 $3)))
+    (EXPANDTAG (VARIABLE-TAG $4 $1 ;; T_VARIABLE optional_type
+                             (cond ((and (semantic-tag-p $6)
+                                         (memq (semantic-tag-class $6) '(code constant)))
+                                    (semantic-tag-name $6))
+                                   ((stringp $6)
+                                    (identity $6)))
+                             ;; is_reference / is_variadic modifiers
+                             :typemodifiers (remq nil (list $2 $3))))
   ;
 
 optional_type
@@ -707,14 +713,17 @@ return_type
   ;
 
 argument_list
-  : PAREN_BLOCK (EXPANDFULL $1 non_empty_argument_list)
+  : PAREN_BLOCK (EXPANDFULL $1 non_empty_argument_list_paren_block)
+  ;
+
+non_empty_argument_list_paren_block
+  : LPAREN RPAREN                         ()
+  | LPAREN non_empty_argument_list RPAREN (identity $2)
   ;
 
 non_empty_argument_list
-  : LPAREN   ()
-  | RPAREN   ()
-  | COMMA    ()
-  | argument
+  : argument
+  | non_empty_argument_list COMMA argument (append $1 $3)
   ;
 
 argument
@@ -724,13 +733,12 @@ argument
 
 global_var_list
   : global_var_list COMMA global_var (append $1 $3)
-  | global_var                       (identity $1)
+  | global_var
   ;
 
 global_var
   : simple_variable
   ;
-
 
 static_var_list
   : static_var_list COMMA static_var (append $1 $3)
@@ -766,12 +774,12 @@ class_statement
         (setq tmp (TAG name 'trait-usage :adaptations $3))
         (setq result (append result (EXPANDTAG tmp)))))
   | method_modifiers function returns_ref identifier PAREN_BLOCK return_type method_body
-    (FUNCTION-TAG $4 $6
-                  (EXPANDFULL $5 parameter_list)
-                  :typemodifiers $1
-                  :constructor-flag (equal $4 "__construct")
-                  :destructor-flag (equal $4 "__destruct")
-                  :members $7)
+    (EXPANDTAG (FUNCTION-TAG $4 $6
+                             (EXPANDFULL $5 parameter_list)
+                             :typemodifiers $1
+                             :constructor-flag (equal $4 "__construct")
+                             :destructor-flag (equal $4 "__destruct")
+                             :members $7))
   ;
 
 name_list
@@ -802,18 +810,18 @@ trait_adaptation
 
 trait_precedence
   : absolute_trait_method_reference T_INSTEADOF name_list
-    (TAG $1 'trait-precedence :insteadof $3)
+    (EXPANDTAG (TAG $1 'trait-precedence :insteadof $3))
   ;
 
 trait_alias
   : trait_method_reference T_AS T_STRING
-    (TAG $1 'trait-alias :alias $3)
+    (EXPANDTAG (TAG $1 'trait-alias :alias $3))
   | trait_method_reference T_AS reserved_non_modifiers
-    (TAG $1 'trait-alias :alias $3)
+    (EXPANDTAG (TAG $1 'trait-alias :alias $3))
   | trait_method_reference T_AS member_modifier identifier
-    (TAG $1 'trait-alias :alias $4 :modifiers $3)
+    (EXPANDTAG (TAG $1 'trait-alias :alias $4 :modifiers $3))
   | trait_method_reference T_AS member_modifier
-    (TAG $1 'trait-alias :alias $3)
+    (EXPANDTAG (TAG $1 'trait-alias :alias $3))
   ;
 
 trait_method_reference
@@ -868,17 +876,16 @@ property
   ;
 
 class_const_list
-  : class_const_list COMMA class_const_decl (append $1 (EXPANDTAG $3))
-  | class_const_decl                        (EXPANDTAG $1)
+  : class_const_list COMMA class_const_decl (append $1 $3)
+  | class_const_decl                        (identity $1)
   ;
 
 class_const_decl
-  : identifier ASSIGN expr
-    (TAG $1 'constant)
+  : identifier ASSIGN expr (EXPANDTAG (TAG $1 'constant))
   ;
 
 const_decl
-  : T_STRING ASSIGN expr (TAG $1 'constant)
+  : T_STRING ASSIGN expr (EXPANDTAG (TAG $1 'constant))
   ;
 
 echo_expr_list
@@ -914,20 +921,13 @@ anonymous_class
 
 new_expr
   : T_NEW class_name_reference ctor_arguments ()
-  | T_NEW anonymous_class                     ()
+  | T_NEW anonymous_class                     (identity $2)
   ;
 
 expr_without_variable
-  : T_LIST PAREN_BLOCK ASSIGN expr
-    (append (EXPANDFULL $2 assignment_list_elements) $4)
-  | variable ASSIGN expr
-    (progn
-      (if (and (semantic-tag-p (car $3))
-               (equal "new" (semantic-tag-code-detail (car $3)))
-               (stringp (semantic-tag-name (car $3))))
-          (semantic-tag-put-attribute (car $1) :type (semantic-tag-name (car $3))))
-      (append $1 $3))
-  | variable ASSIGN AMPERSAND variable     (VARIABLE-TAG $1 nil nil)
+  : T_LIST PAREN_BLOCK ASSIGN expr         (append (EXPANDFULL $2 assignment_list_elements) $4)
+  | variable ASSIGN expr                   (append $1 $3)
+  | variable ASSIGN AMPERSAND variable     (append $1 $4)
   | T_CLONE expr                           (identity $2)
   | variable T_PLUS_EQUAL expr             (identity $3)
   | variable T_MINUS_EQUAL expr            (identity $3)
@@ -962,8 +962,8 @@ expr_without_variable
   | expr MODULO expr                       (append $1 $3)
   | expr T_SL expr                         (append $1 $3)
   | expr T_SR expr                         (append $1 $3)
-  | PLUS expr %prec T_INC                  (identity $2)
-  | MINUS expr %prec T_INC                 (identity $2)
+  | PLUS expr %prec T_INC                  ()
+  | MINUS expr %prec T_INC                 ()
   | NEGATE expr                            (identity $2)
   | BITNOT expr                            (identity $2)
   | expr T_IS_IDENTICAL expr               (append $1 $3)
@@ -976,10 +976,7 @@ expr_without_variable
   | expr T_IS_GREATER_OR_EQUAL expr        (append $1 $3)
   | expr T_SPACESHIP expr                  (append $1 $3)
   | expr T_INSTANCEOF class_name_reference
- ;; TODO: Another example of a rule that needs to be expanded
- ;; differently depending on where used. Fix this!
- ;;  | PAREN_BLOCK (EXPANDFULL $1 expr)
-  | PAREN_BLOCK                            ()
+  | PAREN_BLOCK                            (EXPANDFULL $1 expr_paren_block)
   | new_expr
   | expr QUESTION expr COLON expr          (append $1 $3 $5)
   | expr QUESTION COLON expr               (append $1 $4)
@@ -995,20 +992,20 @@ expr_without_variable
   | T_EXIT exit_expr                       (identity $2)
   | AT expr                                (identity $2)
   | scalar
-  | BACKQUOTE backticks_expr BACKQUOTE     (identity $2)
+  | BACKQUOTE backticks_expr BACKQUOTE     ()
   | T_PRINT expr                           (identity $2)
-  | T_YIELD
+  | T_YIELD                                ()
   | T_YIELD expr                           (identity $2)
   | T_YIELD expr T_DOUBLE_ARROW expr       (append $2 $4)
   | T_YIELD_FROM expr                      (identity $2)
   | function returns_ref PAREN_BLOCK lexical_vars return_type BRACE_BLOCK
     (EXPANDTAG (FUNCTION-TAG "closure" $5 (EXPANDFULL $3 parameter_list)
-                  :lexical-scope $4
-                  :members (EXPANDFULL $6 inner_statement_list)))
+                             :lexical-scope $4
+                             :members (EXPANDFULL $6 inner_statement_list_brace_block)))
   | T_STATIC function returns_ref PAREN_BLOCK lexical_vars return_type BRACE_BLOCK
     (EXPANDTAG (FUNCTION-TAG "closure" $6 (EXPANDFULL $4 parameter_list)
-                  :lexical-scope $5
-                  :members (EXPANDFULL $7 inner_statement_list)))
+                             :lexical-scope $5
+                             :members (EXPANDFULL $7 inner_statement_list_brace_block)))
   ;
 
 function
@@ -1033,8 +1030,8 @@ lexical_var_list
   ;
 
 lexical_var
-  : T_VARIABLE           (VARIABLE-TAG $1 nil nil)
-  | AMPERSAND T_VARIABLE (VARIABLE-TAG $2 nil nil :typemodifiers (list $1))
+  : T_VARIABLE           (EXPANDTAG (VARIABLE-TAG $1 nil nil))
+  | AMPERSAND T_VARIABLE (EXPANDTAG (VARIABLE-TAG $2 nil nil :typemodifiers (list $1)))
   ;
 
 function_call
@@ -1072,9 +1069,9 @@ ctor_arguments
   ;
 
 dereferencable_scalar
-  : T_ARRAY PAREN_BLOCK        ()
-  | BRACK_BLOCK                ()
-  | T_CONSTANT_ENCAPSED_STRING
+  : T_ARRAY PAREN_BLOCK        (EXPANDFULL $2 array_pair_list_paren_block)
+  | BRACK_BLOCK                (EXPANDFULL $1 array_pair_list_brack_block)
+  | T_CONSTANT_ENCAPSED_STRING (EXPANDTAG (TAG $1 'scalar))
   ;
 
 scalar
@@ -1090,8 +1087,8 @@ scalar
   | T_CLASS_C                                               ()
   | T_START_HEREDOC T_ENCAPSED_AND_WHITESPACE T_END_HEREDOC ()
   | T_START_HEREDOC T_END_HEREDOC                           ()
-  | DOUBLEQUOTE encaps_list DOUBLEQUOTE                     (identity $2)
-  | T_START_HEREDOC encaps_list T_END_HEREDOC               (identity $2)
+  | DOUBLEQUOTE encaps_list DOUBLEQUOTE                     ()
+  | T_START_HEREDOC encaps_list T_END_HEREDOC               ()
   | dereferencable_scalar
   | constant                                                ()
   ;
@@ -1108,7 +1105,7 @@ possible_comma
   ;
 
 expr
-  : variable
+  : variable              ()
   | expr_without_variable
   ;
 
@@ -1117,7 +1114,9 @@ expr_paren_block
   ;
 
 expr_brace_block
-  : LBRACE expr RBRACE (identity $2)
+  : LBRACE ()
+  | RBRACE ()
+  | expr
   ;
 
 optional_expr
@@ -1138,15 +1137,14 @@ variable_class_name
   ;
 
 dereferencable
-  : variable
-  | PAREN_BLOCK           ()
+  : variable              ()
+  | PAREN_BLOCK           (EXPANDFULL $1 expr_paren_block)
   | dereferencable_scalar ()
   ;
 
 callable_expr
-  : callable_variable
-  | PAREN_BLOCK           (EXPANDFULL $1 expr)
-  | PAREN_BLOCK           ()
+  : callable_variable     ()
+  | PAREN_BLOCK           (EXPANDFULL $1 expr_paren_block)
   | dereferencable_scalar ()
   ;
 
@@ -1170,7 +1168,7 @@ variable_brace_block
   ;
 
 simple_variable
-  : T_VARIABLE             ()
+  : T_VARIABLE             (EXPANDTAG (VARIABLE-TAG $1 nil nil))
   | DOLLAR BRACE_BLOCK     ()
   | DOLLAR simple_variable ()
   ;
@@ -1181,12 +1179,12 @@ static_member
   ;
 
 new_variable
-  : simple_variable
-  | new_variable BRACK_BLOCK
-  | new_variable BRACE_BLOCK
-  | new_variable T_OBJECT_OPERATOR property_name
+  : simple_variable                                     ()
+  | new_variable BRACK_BLOCK                            ()
+  | new_variable BRACE_BLOCK                            ()
+  | new_variable T_OBJECT_OPERATOR property_name        ()
   | class_name T_PAAMAYIM_NEKUDOTAYIM simple_variable   ()
-  | new_variable T_PAAMAYIM_NEKUDOTAYIM simple_variable
+  | new_variable T_PAAMAYIM_NEKUDOTAYIM simple_variable ()
   ;
 
 member_name
@@ -1217,18 +1215,21 @@ assignment_list_element
   | T_LIST PAREN_BLOCK (EXPANDFULL $2 assignment_list_elements)
   ;
 
-
 array_pair_list_paren_block
-  : LPAREN ()
-  | RPAREN ()
-  | COMMA  ()
-  | array_pair
+  : LPAREN array_pair_list RPAREN (identity $2)
   ;
 
 array_pair_list_brack_block
-  : LBRACK ()
-  | RBRACK ()
-  | COMMA  ()
+  : LBRACK array_pair_list RBRACK (identity $2)
+  ;
+
+array_pair_list
+  : ;; EMPTY
+  | non_empty_array_pair_list possible_comma
+  ;
+
+non_empty_array_pair_list
+  : non_empty_array_pair_list COMMA array_pair (append $1 $3)
   | array_pair
   ;
 
@@ -1240,19 +1241,18 @@ array_pair
   ;
 
 encaps_list
-  : encaps_list encaps_var                (append $1 $2)
-  | encaps_list T_ENCAPSED_AND_WHITESPACE
-  | encaps_var
-  | T_ENCAPSED_AND_WHITESPACE encaps_var  (identity $2)
+  : encaps_list encaps_var                ()
+  | encaps_list T_ENCAPSED_AND_WHITESPACE ()
+  | encaps_var                            ()
+  | T_ENCAPSED_AND_WHITESPACE encaps_var  ()
   ;
 
 encaps_var
-  : T_VARIABLE                            (EXPANDTAG (VARIABLE-TAG $1 nil nil))
-  | T_VARIABLE BRACK_BLOCK                (append (EXPANDTAG (VARIABLE-TAG $1 nil nil))
-                                                  (EXPANDFULL $2 encaps_var_offset_brack_block))
-  | T_VARIABLE T_OBJECT_OPERATOR T_STRING (EXPANDTAG (VARIABLE-TAG $1 nil nil))
-  | BRACE_BLOCK                           (EXPANDFULL $1 variable_brace_block)
- ;; TODO: expressions inside ${} inside heredocs are not supported.
+  : T_VARIABLE                            ()
+  | T_VARIABLE BRACK_BLOCK                ()
+  | T_VARIABLE T_OBJECT_OPERATOR T_STRING ()
+  | BRACE_BLOCK                           ()
+  ;; Todo: strip this functionality from the lexer and skip parsing encaps vars altogether.
   ;; | T_DOLLAR_OPEN_CURLY_BRACES expr RBRACE
   ;; | T_DOLLAR_OPEN_CURLY_BRACES T_STRING_VARNAME RBRACE
   ;; | T_DOLLAR_OPEN_CURLY_BRACES T_STRING_VARNAME LBRACK expr RBRACK RBRACE
@@ -1260,18 +1260,18 @@ encaps_var
   ;
 
 encaps_var_offset_brack_block
-  : LBRACK encaps_var_offset RBRACK (identity $2)
+  : LBRACK encaps_var_offset RBRACK ()
   ;
 
 encaps_var_offset
   : T_STRING   ()
   | T_LNUMBER  ()
-  | T_VARIABLE (VARIABLE-TAG $1 nil nil)
+  | T_VARIABLE ()
   ;
 
 internal_functions_in_yacc
-  : T_ISSET PAREN_BLOCK (EXPANDFULL $2 isset_variables)
-  | T_EMPTY PAREN_BLOCK (EXPANDFULL $2 expr)
+  : T_ISSET PAREN_BLOCK ()
+  | T_EMPTY PAREN_BLOCK ()
   | T_INCLUDE expr      (INCLUDE-TAG $2 nil)
   | T_INCLUDE_ONCE expr (INCLUDE-TAG $2 nil)
   | T_EVAL PAREN_BLOCK  ()
@@ -1280,9 +1280,10 @@ internal_functions_in_yacc
   ;
 
 isset_variables
-  : RPAREN                ()
-  | LPAREN isset_variable (identity $2)
-  | COMMA isset_variable  (identity $2)
+  : RPAREN         ()
+  : LPAREN         ()
+  : COMMA          ()
+  | isset_variable ()
   ;
 
 isset_variable
@@ -1290,15 +1291,6 @@ isset_variable
   ;
 
 %%
-
-;;;
-;;; Action helpers
-;;;
-(defun semantic-php-wy-normalize-qualified-name (name)
-  "Return NAME without leading backslash."
-  (if (equal "\\" (substring name 0 1))
-      (substring name 1)
-    name))
 
 ;;;
 ;;; Define lexical analyzers

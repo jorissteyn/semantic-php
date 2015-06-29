@@ -26,20 +26,29 @@
 ;; TODO: create cleverer expand* macro's to accomodate cases like
 ;; inline_use_statements, parenthesized expressions, etc.
 
-(defun semantic-php-wy-macro-EXPANDFULL (symb nonterm &optional depth)
-  "Expand call to EXPANDFULL grammar macro.
-Return the form to recursively parse an area.
-SYMB is a $I placeholder symbol that gives the bounds of the area.
-NONTERM is the nonterminal symbol to start with.
-DEPTH is the maximum parsing depth (defaults to 1)."
-  (unless (member nonterm (semantic-grammar-start))
-    (error "EXPANDFULL macro called with %s, but not used with %%start"
-           nonterm))
-  (let (($ri (wisent-grammar-region-placeholder symb)))
-    (if $ri
-        `(semantic-parse-region
-          (car ,$ri) (cdr ,$ri) ',nonterm (or ,depth 1))
-      (error "Invalid form (EXPANDFULL %s %s)" symb nonterm))))
+(defun semantic-php-wy-macro-INCLUDE-TAG (name system-flag &rest attributes)
+  "Expand call to INCLUDE-TAG grammar macro.
+
+Same as grammar-macros.el INCLUDE-TAG but allows NAME to be the
+result of the expr rule. An include tag is emitted only when NAME
+is a string, or NAME is list of one 'code tag with name
+\"scalar\" and contains the include name in the :detail
+attribute.
+
+Return the form to create a semantic tag of class include.
+See the function `semantic-tag-new-include' for the meaning of
+arguments NAME, SYSTEM-FLAG and ATTRIBUTES."
+  `(let (incname)
+     (if (stringp ,name)
+         (setq incname ,name)
+       (when (and (equal 1 (length ,name))
+                  (semantic-tag-of-class-p (car ,name) 'scalar))
+         (setq incname (semantic-tag-name (car ,name)))))
+
+     (when incname
+       (wisent-cook-tag
+        (wisent-raw-tag
+         (semantic-tag-new-include (substring incname 1 -1) ,system-flag ,@attributes))))))
 
 (defun semantic-php-wy-macro-EXPANDLIST (tags)
   "Expand a list of raw tags TAGS."

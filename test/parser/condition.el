@@ -29,10 +29,10 @@
   "Test parsing of if constructs"
   (with-test-buffer
    "
-if ($a === $b) {
-    $c;
+if (($a = 1) === ($b = get())) {
+    $c = true;
 } else {
-    $d;
+    $d = true;
 }"
    (with-semantic-tags
     (with-semantic-tag (nth 0 tags) (should (equal "$a" tag-name)))
@@ -45,58 +45,54 @@ if ($a === $b) {
   (with-test-buffer
    "
 if ($a === $b):
-    $c;
+    class A {}
 else:
-    $d;
+    class B {}
 endif;"
    (with-semantic-tags
-    (with-semantic-tag (nth 0 tags) (should (equal "$a" tag-name)))
-    (with-semantic-tag (nth 1 tags) (should (equal "$b" tag-name)))
-    (with-semantic-tag (nth 2 tags) (should (equal "$c" tag-name)))
-    (with-semantic-tag (nth 3 tags) (should (equal "$d" tag-name))))))
+    (with-semantic-tag (nth 0 tags) (should (equal "A" tag-name)))
+    (with-semantic-tag (nth 1 tags) (should (equal "B" tag-name))))))
 
 (ert-deftest semantic-php-test-parser-condition-switch-construct()
   "Test parsing of switch constructs"
   (with-test-buffer
    "
-switch ($a) {
+switch ($a = 1) {
     case $b:
-        break $c;
+        break $c = 1;
     case 1:
         break;
     default:
-        $d;
+        $d = 1;
 }"
    (with-semantic-tags
     (with-semantic-tag (nth 0 tags) (should (equal "$a" tag-name)))
-    (with-semantic-tag (nth 1 tags) (should (equal "$b" tag-name)))
-    (with-semantic-tag (nth 2 tags) (should (equal "$c" tag-name)))
-    (with-semantic-tag (nth 3 tags) (should (equal "$d" tag-name))))))
+    (with-semantic-tag (nth 1 tags) (should (equal "$c" tag-name)))
+    (with-semantic-tag (nth 2 tags) (should (equal "$d" tag-name))))))
 
 (ert-deftest semantic-php-test-parser-condition-switch-construct-alternative()
   "Test parsing of switch constructs in template notation"
   (with-test-buffer
    "
-switch ($a):
+switch ($a = 1):
     case $b:
-        break $c;
+        break $c = 1;
     case 1:
         break;
     default:
-        $d;
+        $d = 1;
 endswitch;"
    (with-semantic-tags
     (with-semantic-tag (nth 0 tags) (should (equal "$a" tag-name)))
-    (with-semantic-tag (nth 1 tags) (should (equal "$b" tag-name)))
-    (with-semantic-tag (nth 2 tags) (should (equal "$c" tag-name)))
-    (with-semantic-tag (nth 3 tags) (should (equal "$d" tag-name))))))
+    (with-semantic-tag (nth 1 tags) (should (equal "$c" tag-name)))
+    (with-semantic-tag (nth 2 tags) (should (equal "$d" tag-name))))))
 
 (ert-deftest semantic-php-test-parser-condition-if-statement-1()
   "Test parsing of if-statements (variation)"
   (with-test-buffer
    "
-if ($a !== null) {
-    $b;
+if ($a = get() !== null) {
+    $b = get();
 }"
    (with-semantic-tags
     (with-semantic-tag (nth 0 tags) (should (equal "$a" tag-name)))

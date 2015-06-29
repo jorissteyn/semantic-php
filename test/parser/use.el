@@ -120,13 +120,5 @@
                        (should (equal "Test\\ClassA" tag-name))
                        (should (equal "class" (plist-get tag-attribs :type)))))))
 
-(ert-deftest semantic-php-test-parser-overlay-variable()
-  "Test overlay for variable tags"
-  (with-test-buffer
-   "$tag;"
-   (with-semantic-first-tag
-    (should (equal 'simple_variable (plist-get tag-props 'reparse-symbol)))
-    (should (equal [7 11] tag-overlay)))))
-
 (provide 'test/parser/use)
 ;;; use.el ends here

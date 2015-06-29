@@ -49,31 +49,32 @@ parser can parse source files of common frameworks and libraries."
     (require 'semantic-php)
     (require 'test/php-faux-mode)
 
-    (dolist (file files)
-      ;; Open the file in a buffer
-      (find-file file)
+    (semantic-php-util-measure
+     (dolist (file files)
+       ;; Open the file in a buffer
+       (find-file file)
 
-      (message "Parsing %s" file)
+       (message "Parsing %s" file)
 
-      ;; Load fake php-mode
-      (php-mode)
+       ;; Load fake php-mode
+       (php-mode)
 
-      ;; Enable semantic-php
-      (semantic-php-default-setup)
-      (semantic-lex-init)
+       ;; Enable semantic-php
+       (semantic-php-default-setup)
+       (semantic-lex-init)
 
-      ;; Parse the file
-      (setq tagcount (+ tagcount (length
-                                  (wisent-parse-region (point-min) (point-max)))))
+       ;; Parse the file
+       (setq tagcount (+ tagcount (length
+                                   (wisent-parse-region (point-min) (point-max)))))
 
-      ;; Clean up and report progress
-      (kill-buffer)
+       ;; Clean up and report progress
+       (kill-buffer)
 
-      (progress-reporter-update progress-reporter
-                                (setq progress (1+ progress))))
+       (progress-reporter-update progress-reporter
+                                 (setq progress (1+ progress))))
 
-    (progress-reporter-done progress-reporter)
-    (message "Found total of %d tags" tagcount)))
+     (progress-reporter-done progress-reporter)
+     (message "Found total of %d tags" tagcount))))
 
 (defun semantic-php-util-files-in-directory (directory)
   "Scan DIRECTORY recursively for source files.
@@ -94,6 +95,12 @@ Returns a list of absolute file names."
             ((string-match-p "[.]php[s3457]?$" file)
              ;; Collect found source file
              (setq files (nconc files (list fullpath))))))))
+
+(defmacro semantic-php-util-measure (&rest body)
+  "Measure time while evaluating BODY."
+  `(let ((time (current-time)))
+     ,@body
+     (message "Total parsing time: %.04f seconds" (float-time (time-since time)))))
 
 (defun semantic-php-util-compile-grammar ()
   "Generate the wisent parser semantic-php-wy.el."

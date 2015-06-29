@@ -131,7 +131,7 @@
 
 If the name of the tag is a cons cell, assume (name . (start . end))
 and set bounds accordingly."
-  ;; TODO: restore expansion of use_declarations, compount class
+  ;; TODO: restore expansion of use_declarations, compound class
   ;; properties and constant definitions, trait usages and global and
   ;; static variables.
   nil)

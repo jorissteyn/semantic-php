@@ -283,11 +283,11 @@ UNICODE;"
    "
 if (1) {
   // Don't explode
-  $a;
+  $a = 1;
 }
 
-$b[1];
-$c;
+$b = true;
+$c = $d;
 "
    ;; TODO: above script causes the parser to emit invalid tag lists
    ;; when parse-sexp-ignore-comments is off. Luckily it's always on -

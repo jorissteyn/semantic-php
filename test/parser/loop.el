@@ -28,44 +28,54 @@
 (ert-deftest semantic-php-test-parser-loop-foreach()
   "Test tag generation for foreach parts"
   (with-test-buffer
-   "foreach ($a as $b) { $c; }"
+   "foreach ($a as $b) { $c = 1; }"
    (with-semantic-tags
-    (with-semantic-tag (nth 0 tags) (should (equal "$a" tag-name)))
-    (with-semantic-tag (nth 1 tags) (should (equal "$b" tag-name)))
-    (with-semantic-tag (nth 2 tags) (should (equal "$c" tag-name)))))
+    (should (equal 2 (length tags)))
+    (with-semantic-tag (nth 0 tags) (should (equal "$b" tag-name)))
+    (with-semantic-tag (nth 1 tags) (should (equal "$c" tag-name)))))
   (with-test-buffer
    "foreach ($a as $b => $c) {}"
    (with-semantic-tags
-    (with-semantic-tag (nth 0 tags) (should (equal "$a" tag-name)))
-    (with-semantic-tag (nth 1 tags) (should (equal "$b" tag-name)))
-    (with-semantic-tag (nth 2 tags) (should (equal "$c" tag-name)))))
+    (should (equal 2 (length tags)))
+    (with-semantic-tag (nth 0 tags) (should (equal "$b" tag-name)))
+    (with-semantic-tag (nth 1 tags) (should (equal "$c" tag-name)))))
   (with-test-buffer
-   "foreach ($a as $b): $c; endforeach;"
+   "foreach ($a as $b): $c = 1; endforeach;"
    (with-semantic-tags
-    (with-semantic-tag (nth 0 tags) (should (equal "$a" tag-name)))
-    (with-semantic-tag (nth 1 tags) (should (equal "$b" tag-name)))
-    (with-semantic-tag (nth 2 tags) (should (equal "$c" tag-name)))))
+    (should (equal 2 (length tags)))
+    (with-semantic-tag (nth 0 tags) (should (equal "$b" tag-name)))
+    (with-semantic-tag (nth 1 tags) (should (equal "$c" tag-name)))))
   (with-test-buffer
-   "foreach ($a as list($b, $c)) { $d; }"
+   "foreach ($a as list($b, $c)) { $d = 1; }"
    (with-semantic-tags
-    (with-semantic-tag (nth 0 tags) (should (equal "$a" tag-name)))
-    (with-semantic-tag (nth 1 tags) (should (equal "$b" tag-name)))
-    (with-semantic-tag (nth 2 tags) (should (equal "$c" tag-name)))
-    (with-semantic-tag (nth 3 tags) (should (equal "$d" tag-name))))))
+    (should (equal 3 (length tags)))
+    (with-semantic-tag (nth 0 tags) (should (equal "$b" tag-name)))
+    (with-semantic-tag (nth 1 tags) (should (equal "$c" tag-name)))
+    (with-semantic-tag (nth 2 tags) (should (equal "$d" tag-name))))))
 
 (ert-deftest semantic-php-test-parser-loop-while()
   "Test while loops"
   (with-test-buffer
-   "while ($a % $b) {
-    $c++;
-    $d + $e;
+   "while (($a = 1) % $b = 1) {
+    $c = 1;
 }"
    (with-semantic-tags
+    (should (equal 3 (length tags)))
     (with-semantic-tag (nth 0 tags) (should (equal "$a" tag-name)))
     (with-semantic-tag (nth 1 tags) (should (equal "$b" tag-name)))
-    (with-semantic-tag (nth 2 tags) (should (equal "$c" tag-name)))
-    (with-semantic-tag (nth 3 tags) (should (equal "$d" tag-name)))
-    (with-semantic-tag (nth 4 tags) (should (equal "$e" tag-name))))))
+    (with-semantic-tag (nth 2 tags) (should (equal "$c" tag-name))))))
+
+(ert-deftest semantic-php-test-parser-loop-while-2()
+  "Test while loops - double assignment don't work. Not at all related to loops!"
+  (with-test-buffer
+   "while ($a = 1 % $b = 1) {
+    $c = 1;
+}"
+   (with-semantic-tags
+    (should (equal 3 (length tags)))
+    (with-semantic-tag (nth 0 tags) (should (equal "$a" tag-name)))
+    (with-semantic-tag (nth 1 tags) (should (equal "$b" tag-name)))
+    (with-semantic-tag (nth 2 tags) (should (equal "$c" tag-name))))))
 
 (provide 'test/parser/loop)
 ;;; loop.el ends here

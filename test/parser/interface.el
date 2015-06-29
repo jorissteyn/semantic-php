@@ -31,7 +31,9 @@
    "interface Test {}"
    (with-semantic-first-tag (should (equal "Test" tag-name))
                             (should (equal 'type tag-class))
-                            (should (equal "interface" (plist-get tag-attribs :type))))))
+                            (should (equal "interface" (plist-get tag-attribs :type)))
+                            (should (equal [7 24] tag-overlay))
+                            (should (equal 'interface_declaration_statement tag-reparse-symbol)))))
 
 (ert-deftest semantic-php-test-parser-interface-extends-interfaces()
   "Test interface extending other interfaces (extends)"
