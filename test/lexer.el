@@ -180,15 +180,16 @@ here
 ;"
    (with-lex-tokens
     (should (equal 'T_START_HEREDOC            (car (nth 0 tokens))))
-    (should (equal 'T_END_HEREDOC              (car (nth 1 tokens))))))
+    (should (equal 'T_ENCAPSED_AND_WHITESPACE  (car (nth 1 tokens))))
+    (should (equal 'T_END_HEREDOC              (car (nth 2 tokens))))))
   (with-test-buffer
    "<<<here
 $variable
 here;"
    (with-lex-tokens
-    (should (equal 'T_START_HEREDOC (car (nth 0 tokens))))
-    (should (equal 'T_VARIABLE      (car (nth 1 tokens))))
-    (should (equal 'T_END_HEREDOC   (car (nth 2 tokens))))))
+    (should (equal 'T_START_HEREDOC           (car (nth 0 tokens))))
+    (should (equal 'T_ENCAPSED_AND_WHITESPACE (car (nth 1 tokens))))
+    (should (equal 'T_END_HEREDOC             (car (nth 2 tokens))))))
   (with-test-buffer
    "<<<here
 encapsed $variable encapsed
@@ -199,9 +200,7 @@ here;"
    (with-lex-tokens
     (should (equal 'T_START_HEREDOC           (car (nth 0 tokens))))
     (should (equal 'T_ENCAPSED_AND_WHITESPACE (car (nth 1 tokens))))
-    (should (equal 'T_VARIABLE                (car (nth 2 tokens))))
-    (should (equal 'T_ENCAPSED_AND_WHITESPACE (car (nth 3 tokens))))
-    (should (equal 'T_END_HEREDOC             (car (nth 4 tokens))))))
+    (should (equal 'T_END_HEREDOC             (car (nth 2 tokens))))))
   (with-test-buffer
    "<<<here
 {$variable}
@@ -209,13 +208,10 @@ here;"
    (with-lex-tokens
     (should (equal 'T_START_HEREDOC           (car (nth 0 tokens))))
     (should (equal 'T_ENCAPSED_AND_WHITESPACE (car (nth 1 tokens))))
-    (should (equal 'T_VARIABLE                (car (nth 2 tokens))))
-    (should (equal 'T_ENCAPSED_AND_WHITESPACE (car (nth 3 tokens))))
-    (should (equal 'T_END_HEREDOC             (car (nth 4 tokens)))))))
+    (should (equal 'T_END_HEREDOC             (car (nth 2 tokens)))))))
 
 (ert-deftest semantic-php-test-lexer-heredocs-escaped-variables()
   "Test heredoc tokens with escaped variables"
-  :expected-result :failed
   (with-test-buffer
    "<<<here
 \\$test

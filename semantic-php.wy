@@ -1416,42 +1416,6 @@ in below grammar to see how the expression is contrived.
    (semantic-lex-token (intern (concat "T_" (upcase (match-string 1)) "_CAST"))
                        (match-beginning 0) (match-end 0))))
 
-(define-lex-regex-analyzer semantic-php-wy-encapsed-and-whitespace-analyzer
-  "Analyzer matching T_ENCAPSED_AND_WHITESPACE between variable tokens inside strings.
-
-This matches everything except interpolated variables. Adjacent tokens are merged."
-  "\\(.*\\)[$][a-zA-Z_]"
-  (if (eq (semantic-lex-token-class (car semantic-lex-token-stream))
-          'T_ENCAPSED_AND_WHITESPACE)
-      ;; Merge the token with previous token if it's the same class,
-      ;; this analyzer does not scan multiple lines.
-      (let ((bounds-end (match-end 1)))
-        (setq semantic-lex-end-point bounds-end)
-        (setcdr (semantic-lex-token-bounds (car semantic-lex-token-stream)) bounds-end))
-    (semantic-lex-push-token
-     (semantic-lex-token
-      'T_ENCAPSED_AND_WHITESPACE (match-beginning 1) (match-end 1)))))
-
-(define-lex-regex-analyzer semantic-php-wy-encapsed-and-whitespace-analyzer-2
-  "Regular expression matching T_ENCAPSED_AND_WHITESPACE to the end of the line.
-
-This analyzer must always run after
-`semantic-php-wy-encapsed-and-whitespace-analyzer' and exists to match the
-encapsed token to the end of string to prevent unmatched
-syntax. Adjacent tokens are merged."
-  ".+"
-  ;; Language wants whitespaces.  Create a token for it.
-  (if (eq (semantic-lex-token-class (car semantic-lex-token-stream))
-          'T_ENCAPSED_AND_WHITESPACE)
-      ;; Merge the token with previous token if it's the same class,
-      ;; this analyzer does not scan multiple lines.
-      (let ((bounds-end (match-end 0)))
-        (setq semantic-lex-end-point bounds-end)
-        (setcdr (semantic-lex-token-bounds (car semantic-lex-token-stream)) bounds-end))
-    (semantic-lex-push-token
-     (semantic-lex-token
-      'T_ENCAPSED_AND_WHITESPACE (match-beginning 0) (match-end 0)))))
-
 (define-lex-analyzer semantic-php-wy-open-close-tag-analyzer
   "Detect and create tokens for open/close tags"
   (looking-at (concat
@@ -1493,9 +1457,10 @@ syntax. Adjacent tokens are merged."
                              (match-beginning 0)
                            (point-max))))))
 
-(define-lex-analyzer semantic-php-wy-nowdoc-analyzer
-  "Detect and create tokens for nowdocs"
-  (looking-at "<<<'\\(\\(\\sw\\|\\s_\\)+\\)'")
+(define-lex-analyzer semantic-php-wy-heredoc-nowdoc-analyzer
+  "Detect and create tokens for heredocs and nowdocs"
+  (or (looking-at "<<<'\\(\\(\\sw\\|\\s_\\)+\\)'")
+      (looking-at "<<<\\(\\(\\sw\\|\\s_\\)+\\)"))
   (let ((startend (match-end 0))
         (docname (match-string 1)))
     ;; Match start of nowdoc
@@ -1503,6 +1468,7 @@ syntax. Adjacent tokens are merged."
      (semantic-lex-token 'T_START_HEREDOC
                          (point)
                          startend))
+
     ;; Match body of nowdoc
     (if (search-forward-regexp (concat "^\\(" docname "\\)\\($\\|;\\)") nil t)
         (progn
@@ -1518,38 +1484,6 @@ syntax. Adjacent tokens are merged."
       ;; Could not find end of nowdoc, emit a phony end tag
       (semantic-lex-push-token
        (semantic-lex-token 'T_END_HEREDOC startend startend)))))
-
-(define-lex-analyzer semantic-php-wy-heredoc-analyzer
-  "Detect and create tokens for heredocs"
-  (looking-at "<<<\\(\\(\\sw\\|\\s_\\)+\\)")
-  (let ((docname (match-string 1))      ;; Name of the heredoc (NAME in <<<NAME)
-        (start-beginning (point))       ;; Beginning of the start token
-        (start-end (match-end 0))       ;; End of the start token
-        end-beginning                   ;; Beginning of the end tokencond
-        end-end)                        ;; End of the end token
-
-    ;; Emit start of heredoc
-    (semantic-lex-push-token
-     (semantic-lex-token 'T_START_HEREDOC start-beginning start-end))
-
-    ;; Find end of heredoc
-    (if (search-forward-regexp (concat "^\\(" docname "\\)\\($\\|;\\)") nil t)
-        ;; End of heredoc found, save the position and emit the end
-        ;; token alter
-        (progn
-          (setq end-beginning (match-beginning 1)
-                end-end (match-end 1))
-
-          (dolist (token (funcall 'semantic-php-wy-string-lexer (1+ start-end) (1- end-beginning)))
-            (semantic-lex-push-token token)))
-
-      ;; No heredoc end found, emit a phony end token
-      (setq end-beginning start-end
-            end-end start-end))
-
-    ;; Emit end of heredoc
-    (semantic-lex-push-token
-     (semantic-lex-token 'T_END_HEREDOC end-beginning end-end))))
 
 
 ;;;
@@ -1567,8 +1501,7 @@ It ignores whitespaces, newlines and comments."
   semantic-php-wy-float-analyzer
   semantic-php-wy-integer-analyzer
   semantic-php-wy-cast-analyzer
-  semantic-php-wy-nowdoc-analyzer
-  semantic-php-wy-heredoc-analyzer
+  semantic-php-wy-heredoc-nowdoc-analyzer
 
   semantic-php-wy--<variable>-regexp-analyzer
   semantic-php-wy--<punctuation>-string-analyzer
@@ -1577,18 +1510,6 @@ It ignores whitespaces, newlines and comments."
   semantic-php-wy--<string>-regexp-analyzer
   semantic-php-wy--<quoted-string>-sexp-analyzer
   semantic-php-wy--<mb>-regexp-analyzer
-
-  semantic-lex-default-action)
-
-(define-lex semantic-php-wy-string-lexer
-  "Lexical analyzer that handles PHP heredoc contents."
-
-  semantic-lex-ignore-whitespace
-  semantic-lex-ignore-newline
-
-  semantic-php-wy--<variable>-regexp-analyzer
-  semantic-php-wy-encapsed-and-whitespace-analyzer
-  semantic-php-wy-encapsed-and-whitespace-analyzer-2
 
   semantic-lex-default-action)
 

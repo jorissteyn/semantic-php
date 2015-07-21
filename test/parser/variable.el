@@ -129,15 +129,5 @@
     (with-semantic-tag (nth 0 tags) (should (equal "$a" tag-name)))
     (with-semantic-tag (nth 1 tags) (should (equal "$b" tag-name))))))
 
-(ert-deftest semantic-php-test-parser-variable-tags-in-heredocs()
-  "Test variable tags in heredocs"
-  (with-test-buffer
-   "$a = <<<here
-$b $c
-here;"
-   (with-semantic-tags
-    (should (equal 1 (length tags)))
-    (with-semantic-tag (nth 0 tags) (should (equal "$a" tag-name))))))
-
 (provide 'test/parser/variable)
 ;;; variable.el ends here
