@@ -30,7 +30,7 @@
   (with-test-buffer
    "use Test;"
    (with-semantic-first-tag
-    (should (equal 'use tag-class))
+    (should (equal 'type tag-class))
     (should (equal "Test" tag-name)))))
 
 (ert-deftest semantic-php-test-parser-use-statements-with-alias()
@@ -38,9 +38,9 @@
   (with-test-buffer
    "use TestA as TestB;"
    (with-semantic-first-tag
-    (should (equal 'use tag-class))
-    (should (equal "TestA" tag-name))
-    (should (equal "TestB" (plist-get tag-attribs :alias))))))
+    (should (equal 'type tag-class))
+    (should (equal "TestB" tag-name))
+    (should (equal "TestA" (semantic-tag-name (car tag-members)))))))
 
 (ert-deftest semantic-php-test-parser-use-statements-compound()
   "Test compound use statements"
@@ -48,22 +48,22 @@
    "use TestA, TestB, TestC as TestD;"
    (with-semantic-tags
     (with-semantic-tag (nth 0 tags)
-                       (should (equal 'use tag-class))
+                       (should (equal 'type tag-class))
                        (should (equal "TestA" tag-name)))
     (with-semantic-tag (nth 1 tags)
-                       (should (equal 'use tag-class))
+                       (should (equal 'type tag-class))
                        (should (equal "TestB" tag-name)))
     (with-semantic-tag (nth 2 tags)
-                       (should (equal 'use tag-class))
-                       (should (equal "TestC" tag-name))
-                       (should (equal "TestD" (plist-get tag-attribs :alias)))))))
+                       (should (equal 'type tag-class))
+                       (should (equal "TestD" tag-name))
+                       (should (equal "TestC" (semantic-tag-name (car tag-members))))))))
 
 (ert-deftest semantic-php-test-parser-use-statements-functions()
   "Test use statements for functions"
   (with-test-buffer
    "use function TestF;"
    (with-semantic-first-tag
-    (should (equal 'use tag-class))
+    (should (equal 'type tag-class))
     (should (equal "TestF" tag-name))
     (should (equal "function" (plist-get tag-attribs :type))))))
 
@@ -72,7 +72,7 @@
   (with-test-buffer
    "use const TestC;"
    (with-semantic-first-tag
-    (should (equal 'use tag-class))
+    (should (equal 'type  tag-class))
     (should (equal "TestC" tag-name))
     (should (equal "const" (plist-get tag-attribs :type))))))
 
@@ -82,24 +82,27 @@
    "use Test\\ { ClassA, ClassB as AliasB };"
    (with-semantic-tags
     (with-semantic-tag (nth 0 tags)
-                       (should (equal 'use tag-class))
-                       (should (equal "Test\\ClassA" tag-name)))
+                       (should (equal 'type tag-class))
+                       (should (equal "ClassA" tag-name))
+                       (should (equal "Test\\ClassA" (semantic-tag-name (car tag-members)))))
     (with-semantic-tag (nth 1 tags)
-                       (should (equal 'use tag-class))
-                       (should (equal "Test\\ClassB" tag-name))
-                       (should (equal "AliasB" (plist-get tag-attribs :alias)))))))
+                       (should (equal 'type tag-class))
+                       (should (equal "AliasB" tag-name))
+                       (should (equal "Test\\ClassB" (semantic-tag-name (car tag-members))))))))
 
 (ert-deftest semantic-php-test-parser-use-statements-grouped-type()
   "Test grouped use statements with type specifier"
   (with-test-buffer
    "use function Test\\ { funA };"
-   (with-semantic-first-tag (should (equal 'use tag-class))
-                            (should (equal "Test\\funA" tag-name))
+   (with-semantic-first-tag (should (equal 'type tag-class))
+                            (should (equal "funA" tag-name))
+                            (should (equal "Test\\funA" (semantic-tag-name (car tag-members))))
                             (should (equal "function" (plist-get tag-attribs :type)))))
   (with-test-buffer
    "use const Test\\ { CONSTA };"
-   (with-semantic-first-tag (should (equal 'use tag-class))
-                            (should (equal "Test\\CONSTA" tag-name))
+   (with-semantic-first-tag (should (equal 'type tag-class))
+                            (should (equal "CONSTA" tag-name))
+                            (should (equal "Test\\CONSTA" (semantic-tag-name (car tag-members))))
                             (should (equal "const" (plist-get tag-attribs :type))))))
 
 (ert-deftest semantic-php-test-parser-use-statements-grouped-mixed()
@@ -108,16 +111,19 @@
    "use Test\\ { function funA, const CONSTA, ClassA };"
    (with-semantic-tags
     (with-semantic-tag (nth 0 tags)
-                       (should (equal 'use tag-class))
-                       (should (equal "Test\\funA" tag-name))
+                       (should (equal 'type tag-class))
+                       (should (equal "funA" tag-name))
+                       (should (equal "Test\\funA" (semantic-tag-name (car tag-members))))
                        (should (equal "function" (plist-get tag-attribs :type))))
     (with-semantic-tag (nth 1 tags)
-                       (should (equal 'use tag-class))
-                       (should (equal "Test\\CONSTA" tag-name))
+                       (should (equal 'type tag-class))
+                       (should (equal "CONSTA" tag-name))
+                       (should (equal "Test\\CONSTA" (semantic-tag-name (car tag-members))))
                        (should (equal "const" (plist-get tag-attribs :type))))
     (with-semantic-tag (nth 2 tags)
-                       (should (equal 'use tag-class))
-                       (should (equal "Test\\ClassA" tag-name))
+                       (should (equal 'type tag-class))
+                       (should (equal "ClassA" tag-name))
+                       (should (equal "Test\\ClassA" (semantic-tag-name (car tag-members))))
                        (should (equal "class" (plist-get tag-attribs :type)))))))
 
 (provide 'test/parser/use)

@@ -140,9 +140,9 @@ buffer."
 (require 'test/parser/class-member)
 (require 'test/parser/condition)
 (require 'test/parser/constant)
-(require 'test/parser/loop)
 (require 'test/parser/function)
 (require 'test/parser/interface)
+(require 'test/parser/loop)
 (require 'test/parser/misc)
 (require 'test/parser/namespace)
 (require 'test/parser/overlay)
@@ -150,6 +150,7 @@ buffer."
 (require 'test/parser/try-catch)
 (require 'test/parser/use)
 (require 'test/parser/variable)
+(require 'test/scope)
 
 (provide 'semantic-php-test)
 ;;; semantic-php-test.el ends here

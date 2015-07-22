@@ -61,20 +61,29 @@ arguments NAME, SYSTEM-FLAG and ATTRIBUTES."
 NAME is the group name, DECLS is the compound use declarations."
   `(let (result)
      (dolist (decl ,decls (nreverse result))
-       (semantic-tag-set-name decl (concat ,name
-                                           "\\"
-                                           (semantic-tag-name decl)))
-       (push decl result))))
+       (let ((realtag (car (semantic-tag-type-members decl))))
+         (semantic-tag-set-name realtag
+                                (concat ,name
+                                        "\\"
+                                        (semantic-tag-name realtag)))
+         (setcar (semantic-tag-type-members decl) realtag)
+         (push decl result)))))
 
 (defun semantic-php-wy-macro-USEDECL (name &optional alias)
   "Create a temporary tag for single use declaration.
 
 NAME is the fully- or unqualified name, ALIAS is the optional alias."
   `(wisent-raw-tag
-    (semantic-tag ,name 'use :alias
-                  (or ,alias
-                      ;; The last part of the name acts as an alias in PHP.
-                      (car (last (split-string ,name "\\\\")))))))
+    (semantic-tag-new-type
+     (or ,alias
+         ;; The last part of the name acts as an alias in PHP.
+         (car (last (split-string ,name "\\\\"))))
+     ;; TODO: Technically, the type could be anything. Not just a
+     ;; class, but there's no way to express that.
+     "class"
+     (list (semantic-tag-new-type ,name "class" nil nil))
+     nil
+     :kind 'alias)))
 
 (defun semantic-php-wy-macro-USETYPE (decl type)
   "Set the type of a use declaration.
@@ -84,6 +93,9 @@ type (class, function, const)."
   `(dolist (tag (if (semantic-tag-p ,decl)
                     (list ,decl)
                   ,decl) ,decl)
+     ;; TODO: This is wrong but works. We should really not need to
+     ;; change the type (class, trait, etc), but instead create a new
+     ;; tag with a different class (type, function, etc).
      (semantic-tag-put-attribute tag :type ,type)))
 
 (provide 'semantic-php-wy-macro)
