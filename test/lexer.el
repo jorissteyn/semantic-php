@@ -292,5 +292,32 @@ $c = $d;
    (with-semantic-tags
     (should (equal 3 (length tags))))))
 
+;; This test case is a simplified version of Zend_Gdata_Docs, for some
+;; reason the lexer chokes on the html contents. The combination of
+;; the first #header, together with the dot in 2.4em triggers the
+;; error.
+;;
+;; Tips for debugging this:
+;;  * put breakpoints in semantic-php-wy.el
+;;  * or add debug statements to lexical analyzers in semantic-php.wy
+;;  * inspect the end position of emitted inline_html tokens
+;;  * perhaps the order of the analyzers in semantic-php-wy-lexer is wrong
+(ert-deftest semantic-php-test-lexer-parse-inline-html()
+  "Test parser wont explode on inline html"
+  :expected-result :failed
+  (with-test-buffer
+   "function startHTML() {
+?>
+        #header h1 {
+        }
+
+        #header p {
+            line-height: 2.4em;
+        }
+
+<?php } ?>"
+   (with-semantic-tags
+    (should (equal 1 (length tags))))))
+
 (provide 'test/lexer)
 ;;; lexer.el ends here

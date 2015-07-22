@@ -799,8 +799,8 @@ trait_adaptations_brace_block
   ;
 
 trait_adaptation_list
-  : trait_adaptation                       (list $1)
-  | trait_adaptation_list trait_adaptation (append $1 (list $2))
+  : trait_adaptation
+  | trait_adaptation_list trait_adaptation (append $1 $2)
   ;
 
 trait_adaptation

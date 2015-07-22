@@ -27,7 +27,7 @@
 (require 'semantic-php)
 (require 'ert)
 
-(ert-deftest edep-test-context-simple ()
+(ert-deftest semantic-php-test-context-simple ()
   "Test context analysis: simple classes"
   (with-saved-test-buffer
    "
@@ -43,7 +43,7 @@ class A {
    (search-forward "test()")
    (search-forward "AliasA")))
 
-(ert-deftest edep-test-context-scope ()
+(ert-deftest semantic-php-test-context-scope ()
   :expected-result :failed
   "Test scope calculation"
   (with-saved-test-buffer
