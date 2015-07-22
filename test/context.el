@@ -32,16 +32,16 @@
   (with-saved-test-buffer
    "
 class A {
-    function A() {}
-}extends TestA {
-    public function test() {
-        AliasA
-        TestB
+    function a() {}
+    function b() {
+        $this->
     }
 }
 "
-   (search-forward "test()")
-   (search-forward "AliasA")))
+   (search-forward "$this->")
+   (message (pp-to-string
+             (semantic-analyze-possible-completions (point))
+             ))))
 
 (ert-deftest semantic-php-test-context-scope ()
   :expected-result :failed

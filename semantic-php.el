@@ -123,17 +123,13 @@
 ;; Define all modes applicable for semantic-php.
 (define-child-mode web-mode php-mode)
 
-;;;
-;;; Dealing with compound tags / tag expansion
-;;;
 (defun semantic-php-expand-tag (tag)
   "Expand compound declarations found in TAG into separate tags.
 
 If the name of the tag is a cons cell, assume (name . (start . end))
 and set bounds accordingly."
-  ;; TODO: restore expansion of use_declarations, compound class
-  ;; properties and constant definitions, trait usages and global and
-  ;; static variables.
+  ;; TODO: Improve the incremental reparse of compound statements like
+  ;; 'public $a, $b;'.
   nil)
 
 (defun semantic-php-bucketize-tag-class (tag)
@@ -150,6 +146,55 @@ emitting separate symbols for classes, interfaces and traits."
         ;; Convert string to symbol accepted by semantic-symbol->*
         (intern (plist-get tag-attribs :type))
       tag-class)))
+
+(define-mode-local-override semantic-get-local-variables
+  php-mode (&optional point)
+  "Get local values from the context of point.
+
+This implementation is very different from
+`semantic-get-local-variables-default'. We use the current parser
+result to extract variable tags based on the current context, or
+the top-level context when not in a function context. It will not
+re-parse part of the buffer."
+  (let ((functiontag (semantic-current-tag-of-class 'function))
+        (functionparent (car-safe (semantic-find-tags-by-type
+                           "class" (semantic-find-tag-by-overlay))))
+        classparent   ;; the parent class of the function parent
+        alltags       ;; collect all tags in scope (TODO: use scope object)
+        variabletags  ;; list of variable tags
+        namelist)     ;; the names of tags in variabletags (used for dedupping)
+
+    (setq alltags
+          (if functiontag
+              ;; In a function.
+              (append (semantic-tag-function-arguments functiontag)
+                      (semantic-tag-type-members functiontag))
+            ;; In the toplevel space.
+            (semantic-fetch-tags)))
+
+    ;; Find local variables and remove duplicates.
+    (dolist (tag alltags variabletags)
+      (when (and (semantic-tag-of-class-p tag 'variable)
+                 (not (member (semantic-tag-name tag) namelist)))
+        (push (semantic-tag-name tag) namelist)
+        (push tag variabletags)))
+
+    ;; Handle special function variables/keywords.
+    (when functionparent
+      ;; If in non-static context, add $this.
+      (unless (member "static" (semantic-tag-get-attribute functiontag :typemodifiers))
+        (push (semantic-tag-new-variable "$this" functionparent nil) variabletags))
+
+      ;; Find the parent class of the parent, this is the type of the
+      ;; parent keyword.
+      (setq classparent (car-safe (semantic-tag-type-superclasses functionparent)))
+      (when classparent
+        (push (semantic-tag-new-variable "parent" classparent nil) variabletags))
+
+      ;; Add self as variable (while not actually a variable).
+      (push (semantic-tag-new-variable "self" functionparent nil) variabletags))
+
+    (nreverse variabletags)))
 
 (provide 'semantic-php)
 ;;; semantic-php.el ends here

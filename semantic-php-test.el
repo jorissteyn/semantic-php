@@ -85,7 +85,12 @@ buffer."
      (php-mode)
 
      ;; Install the parser!
+     ;; TODO: Enabling semantic-mode should auto-enable
+     ;; semantic-php. Just like it works with c/python/etc.
      (semantic-php-default-setup)
+
+     ;; Enable semantic.
+     (semantic-mode)
 
      ;; Need to explicitly initialize the lexer, or save the buffer to
      ;; file first. This used to be no problem in EDEP, but something
@@ -128,6 +133,7 @@ buffer."
 
 (require 'test/context)
 (require 'test/lexer)
+(require 'test/local-variables)
 (require 'test/parser/cast)
 (require 'test/parser/class)
 (require 'test/parser/class-member)
