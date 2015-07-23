@@ -114,12 +114,6 @@
                                                      (variable . "Properties")
                                                      (function . "Methods"))))
 
-;; Enable the mode-local overrides in semantic/bovine/c.el.  Disabled
-;; because the tags we emit are not identical to the ones the c parser
-;; emits. Not sure to what extent the c overrides are suitable for
-;; semantic-php, we'll write our own.
-;; (define-child-mode php-mode c++-mode)
-
 ;; Define all modes applicable for semantic-php.
 (define-child-mode web-mode php-mode)
 
@@ -159,7 +153,7 @@ re-parse part of the buffer."
   (let ((functiontag (semantic-current-tag-of-class 'function))
         (functionparent (car-safe (semantic-find-tags-by-type
                            "class" (semantic-find-tag-by-overlay))))
-        classparent   ;; the parent class of the function parent
+        classparen    ;; the parent class of the function parent
         alltags       ;; collect all tags in scope (TODO: use scope object)
         variabletags  ;; list of variable tags
         namelist)     ;; the names of tags in variabletags (used for dedupping)
@@ -195,6 +189,20 @@ re-parse part of the buffer."
       (push (semantic-tag-new-variable "self" functionparent nil) variabletags))
 
     (nreverse variabletags)))
+
+(define-mode-local-override semantic-analyze-split-name
+  php-mode (name)
+  "Split up NAME by namespace parts."
+  ;; Note: namespaces in PHP are not hierarchical so we need to figure
+  ;; out a way to never walk the split name all the way down. We
+  ;; actually only want to split the name in two pieces:
+  ;;   A\B\C -> A\B, C
+  ;; but semantic calls this function repeatedly untill there's
+  ;; nothing left to split, this is not easy to change.
+  (let ((parts (delete "" (split-string name "\\\\"))))
+    (if (= (length parts) 1)
+        (car parts)
+      parts)))
 
 (provide 'semantic-php)
 ;;; semantic-php.el ends here

@@ -1,4 +1,4 @@
-;;; context.el --- Test context functions
+;;; context-use-statements.el --- Test use statements
 
 ;; Copyright (C) 2014 Joris Steyn
 
@@ -27,99 +27,45 @@
 (require 'semantic-php)
 (require 'ert)
 
-(ert-deftest semantic-php-test-context-simple-local-variable()
-  "Test type deduction on local variables"
-  ;; TODO: This fails because the parser does not set the variable
-  ;; type in expr_without_variable.
+(ert-deftest semantic-php-test-context-class-alias ()
+  "Test context calculation for an aliassed class"
+  (with-saved-test-buffer
+   "use A as AliasA;
+
+class A {}
+
+AliasA"
+   (let* ((ctxt (semantic-analyze-current-context (point-max)))
+          (prefix (oref ctxt prefix)))
+     (with-semantic-tag (car prefix)
+                        (should (equal "A" tag-name))
+                        (should (equal 'type tag-class))
+                        (should (equal "class" tag-type))))))
+
+(ert-deftest semantic-php-test-context-class-alias-namespace-braces()
+  "Test context calculation for an aliassed class in a brace-block namespace"
   :expected-result :failed
   (with-saved-test-buffer
    "
-class A {}
-
-$var = new A;
-"
-   (search-forward "new A")
-   (move-end-of-line 1)
-   (insert "$var->")
-
-   (let* ((ctxt (semantic-analyze-current-context))
-          (prefixtypes (oref ctxt prefixtypes)))
-     (with-semantic-tag (car prefixtypes)
-                        (should (equal "A" tag-name))
-                        (should (equal 'type tag-class))
-                        (should (equal "class" tag-type))))))
-
-(ert-deftest semantic-php-test-context-method-argument()
-  "Test type deduction on method arguments"
-  (with-saved-test-buffer
-   "
-class A {}
-
-function test(A $arg) {
-  $var = new A;
-}
-"
-   (search-forward "new A")
-   (move-end-of-line 1)
-   (insert "$arg->")
-
-   (let* ((ctxt (semantic-analyze-current-context))
-          (prefixtypes (oref ctxt prefixtypes)))
-     (with-semantic-tag (car prefixtypes)
-                        (should (equal "A" tag-name))
-                        (should (equal 'type tag-class))
-                        (should (equal "class" tag-type))))))
-
-(ert-deftest semantic-php-test-context-class-simple ()
-  "Test context calculation for an regular class"
-  ;; Test non-aliassed behaviour.
-  (with-saved-test-buffer
-   "class A {}
-
-A"
-   (let* ((ctxt (semantic-analyze-current-context (point-max)))
-          (prefix (oref ctxt prefix)))
-     (with-semantic-tag (car prefix)
-                        (should (equal "A" tag-name))
-                        (should (equal 'type tag-class))
-                        (should (equal "class" tag-type))))))
-
-(ert-deftest semantic-php-test-context-class-namespace-braces ()
-  "Test context calculation for a brace-block namespaced class"
-  (with-saved-test-buffer
-   "
 namespace A {
-    class A {}
-}
-
-\\A\\A"
-   (let* ((ctxt (semantic-analyze-current-context (point-max)))
-          (prefix (oref ctxt prefix)))
-     (with-semantic-tag (car prefix)
-                        (should (equal "A" tag-name))
-                        (should (equal "class" tag-type))))))
-
-(ert-deftest semantic-php-test-context-class-multiple-namespaces-braces ()
-  "Test context calculation for a namespaced class in different namespaces"
-  (with-saved-test-buffer
-   "
-namespace A {
-    class A {}
+    class A extends X {}
 }
 
 namespace B {
-    class A {}
-    /**/ \\A\\A
+    use A\\A as AliasA;
+
+    /**/ AliasA
 }"
-   (search-forward "/**/ \\A\\A")
+   (search-forward "/**/ AliasA")
    (let* ((ctxt (semantic-analyze-current-context))
           (prefix (oref ctxt prefix)))
      (with-semantic-tag (car prefix)
                         (should (equal "A" tag-name))
-                        (should (equal "class" tag-type))))))
+                        (should (equal "class" tag-type))
+                        (should (semantic-tag-type-superclasses tag))))))
 
-(ert-deftest semantic-php-test-context-class-namespace-braceless()
-  "Test context calculation for a class in a braceless namespace"
+(ert-deftest semantic-php-test-context-class-alias-namespace-braceless()
+  "Test context calculation for an aliassed class in a braceless namespace"
   :expected-result :failed
   (with-saved-test-buffer
    "
@@ -129,7 +75,9 @@ class A {}
 namespace B;
 class A extends \\A\\A {}
 
-\\A\\A"
+use A\\A as AliasA;
+
+AliasA"
    (let* ((ctxt (semantic-analyze-current-context (point-max)))
           (prefix (oref ctxt prefix)))
      (with-semantic-tag (car prefix)
@@ -137,5 +85,47 @@ class A extends \\A\\A {}
                         (should (equal "class" tag-type))
                         (should (not (semantic-tag-type-superclasses tag)))))))
 
-(provide 'test/context)
-;; context.el ends here
+(ert-deftest semantic-php-test-context-namespace-alias-braces()
+  "Test context calculation for an aliassed namespace"
+  :expected-result :failed
+  (with-saved-test-buffer
+   "
+namespace A {
+    class A extends X {}
+}
+
+namespace B {
+    use A as AliasA;
+
+    /**/ AliasA\\A
+}"
+   (search-forward "/**/ AliasA\\A")
+   (let* ((ctxt (semantic-analyze-current-context))
+          (prefix (oref ctxt prefix)))
+     (with-semantic-tag (car prefix)
+                        (should (equal "A" tag-name))
+                        (should (equal "class" tag-type))
+                        (should (semantic-tag-type-superclasses tag))))))
+
+(ert-deftest semantic-php-test-context-namespace-alias-braceless()
+  "Test context calculation for an aliassed namespace"
+  (with-saved-test-buffer
+   "
+namespace A;
+class A {}
+
+namespace B;
+class A extends A\\A {}
+
+use A as AliasA;
+
+AliasA\\A"
+   (let* ((ctxt (semantic-analyze-current-context (point-max)))
+          (prefix (oref ctxt prefix)))
+     (with-semantic-tag (car prefix)
+                        (should (equal "A" tag-name))
+                        (should (equal "class" tag-type))
+                        (should (not (semantic-tag-type-superclasses tag)))))))
+
+(provide 'test/context-use-statements)
+;; context-use-statements.el ends here

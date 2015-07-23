@@ -681,19 +681,19 @@ parameter_list
 
 parameter
   : optional_type is_reference is_variadic T_VARIABLE
-    (EXPANDTAG (VARIABLE-TAG $4 $1 ;; T_VARIABLE optional_type
+    (VARIABLE-TAG $4 $1 ;; T_VARIABLE optional_type
                   nil   ;; no default value
                   ;; is_reference / is_variadic modifiers
-                  :typemodifiers (remq nil (list $2 $3))))
+                  :typemodifiers (remq nil (list $2 $3)))
   | optional_type is_reference is_variadic T_VARIABLE ASSIGN expr
-    (EXPANDTAG (VARIABLE-TAG $4 $1 ;; T_VARIABLE optional_type
-                             (cond ((and (semantic-tag-p $6)
-                                         (memq (semantic-tag-class $6) '(code constant)))
-                                    (semantic-tag-name $6))
-                                   ((stringp $6)
-                                    (identity $6)))
-                             ;; is_reference / is_variadic modifiers
-                             :typemodifiers (remq nil (list $2 $3))))
+    (VARIABLE-TAG $4 $1 ;; T_VARIABLE optional_type
+                  (cond ((and (semantic-tag-p $6)
+                              (memq (semantic-tag-class $6) '(code constant)))
+                         (semantic-tag-name $6))
+                        ((stringp $6)
+                         (identity $6)))
+                  ;; is_reference / is_variadic modifiers
+                  :typemodifiers (remq nil (list $2 $3)))
   ;
 
 optional_type
