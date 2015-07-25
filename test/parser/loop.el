@@ -23,7 +23,6 @@
 
 (require 'semantic-php)
 (require 'ert)
-(require 'test/php-faux-mode)
 
 (ert-deftest semantic-php-test-parser-loop-foreach()
   "Test tag generation for foreach parts"

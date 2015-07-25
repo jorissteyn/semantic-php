@@ -23,7 +23,6 @@
 
 (require 'semantic-php)
 (require 'ert)
-(require 'test/php-faux-mode)
 
 ;;;; Integer literals
 (ert-deftest semantic-php-test-lexer-integer-literals ()

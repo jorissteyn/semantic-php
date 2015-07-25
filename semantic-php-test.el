@@ -86,6 +86,8 @@ buffer."
      ;; Not the real php-mode, this is a "dummy". The major-mode must
      ;; be php-mode in order to activate the semantic mode-local
      ;; overrides.
+     (require 'test/php-faux-mode)
+
      (php-mode)
 
      ;; Install the parser!
@@ -159,6 +161,7 @@ buffer."
 (require 'test/lexer)
 (require 'test/local-variables)
 (require 'test/scope)
+(require 'test/traits)
 (require 'test/use-statements)
 
 (provide 'semantic-php-test)

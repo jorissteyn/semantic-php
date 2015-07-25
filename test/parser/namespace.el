@@ -23,7 +23,6 @@
 
 (require 'semantic-php)
 (require 'ert)
-(require 'test/php-faux-mode)
 
 (ert-deftest semantic-php-test-parser-namespace-declarations()
   "Test namespace declarations tags"

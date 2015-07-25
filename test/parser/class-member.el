@@ -23,7 +23,6 @@
 
 (require 'semantic-php)
 (require 'ert)
-(require 'test/php-faux-mode)
 
 (ert-deftest semantic-php-test-parser-class-member-methods()
   "Test functions as class members"

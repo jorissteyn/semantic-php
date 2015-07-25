@@ -40,9 +40,8 @@
 
 (require 'semantic-php-wy)
 (require 'semantic)
-(require 'semantic/analyze)
-(require 'semantic/ctxt)
-(require 'semantic/sort)
+(require 'semantic/doc)
+(require 'subr-x)
 
 ;;;###autoload
 (add-hook 'php-mode-hook 'semantic-php-default-setup)
