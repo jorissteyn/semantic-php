@@ -307,6 +307,7 @@
 %start optional_expr
 %start optional_expr_brack_block
 %start parameter_list
+%start top_statement
 %start top_statement_list_brace_block
 %start trait_adaptations_brace_block
 %start use_declarations_brace_block
