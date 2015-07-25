@@ -50,7 +50,8 @@ buffer."
       ,(concat "<?php " source)
 
       ;; Write source file to disk.
-      (write-file filename)
+      (set-visited-file-name filename t)
+      (basic-save-buffer)
 
       (unwind-protect
           (progn
@@ -62,7 +63,10 @@ buffer."
             (require 'semantic/db-mode)
 
             (semanticdb-semantic-init-hook-fcn)
-            (semantic-force-refresh)
+
+            ;; semantic-force-refresh without confirmation message:
+            (semantic-clear-toplevel-cache)
+            (semantic-fetch-tags)
 
             ,@body)
 
@@ -149,6 +153,7 @@ buffer."
 (require 'test/parser/variable)
 
 ;; Other tests
+(require 'test/class-members)
 (require 'test/context)
 (require 'test/includes)
 (require 'test/lexer)

@@ -70,6 +70,52 @@ function test(A $arg) {
                         (should (equal 'type tag-class))
                         (should (equal "class" tag-type))))))
 
+(ert-deftest semantic-php-test-context-function-return ()
+  "Test type deduction on function return value"
+  :expected-result :failed
+  (with-test-buffer
+   "
+class A {}
+
+/**
+ * @return A
+ */
+function test() {
+  return new A;
+}
+
+/**/ test()->
+"
+   (search-forward "/**/ test()")
+
+   (let* ((ctxt (semantic-analyze-current-context))
+          (prefixtypes (oref ctxt prefixtypes)))
+     (with-semantic-tag (car prefixtypes)
+                        (should (equal "A" tag-name))
+                        (should (equal 'type tag-class))
+                        (should (equal "class" tag-type))))))
+
+(ert-deftest semantic-php-test-context-typed-function-return ()
+  "Test type deduction on typed function return value"
+  (with-saved-test-buffer
+   "
+class A {}
+
+function test() : A {
+  return new A;
+}
+
+/**/ test()->
+"
+   (search-forward "/**/ test()->")
+
+   (let* ((ctxt (semantic-analyze-current-context))
+          (prefixtypes (oref ctxt prefixtypes)))
+     (with-semantic-tag (car prefixtypes)
+                        (should (equal "A" tag-name))
+                        (should (equal 'type tag-class))
+                        (should (equal "class" tag-type))))))
+
 (ert-deftest semantic-php-test-context-class-simple ()
   "Test context calculation for an regular class"
   ;; Test non-aliassed behaviour.
