@@ -46,7 +46,6 @@
    (with-semantic-tags
     (should (equal 0 (length tags))))))
 
-;; TODO
 (ert-deftest semantic-php-test-parser-misc-include-require()
   "Test include/require statements"
   (with-test-buffer
@@ -54,13 +53,20 @@
   (with-test-buffer
    "require ($test);")
   (with-test-buffer
-   "include 'test.php';"
-   (with-semantic-first-tag
-    (should (equal "test.php" tag-name))))
-  (with-test-buffer
-   "include ('test.php');"
-   (with-semantic-first-tag
-    (should (equal "test.php" tag-name)))))
+   "
+include 'test.php';
+include('test.php');
+require 'test.php';
+require('test.php');
+include_once 'test.php';
+include_once('test.php');
+require_once 'test.php';
+require_once('test.php');
+"
+   (with-semantic-tags
+    (should (equal 8 (length tags)))
+    (dolist (tag tags)
+      (should (equal "test.php" (semantic-tag-name tag)))))))
 
 (ert-deftest semantic-php-test-parser-misc-return-statements()
   "Test return statements"

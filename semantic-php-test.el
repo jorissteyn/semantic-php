@@ -131,10 +131,7 @@ buffer."
            tag-reparse-symbol (plist-get tag-props 'reparse-symbol))
      ,@body))
 
-(require 'test/context)
-(require 'test/context-use-statements)
-(require 'test/lexer)
-(require 'test/local-variables)
+;; Parser tests
 (require 'test/parser/cast)
 (require 'test/parser/class)
 (require 'test/parser/class-member)
@@ -150,7 +147,14 @@ buffer."
 (require 'test/parser/try-catch)
 (require 'test/parser/use)
 (require 'test/parser/variable)
+
+;; Other tests
+(require 'test/context)
+(require 'test/includes)
+(require 'test/lexer)
+(require 'test/local-variables)
 (require 'test/scope)
+(require 'test/use-statements)
 
 (provide 'semantic-php-test)
 ;;; semantic-php-test.el ends here

@@ -180,5 +180,16 @@ function x() {
 }"
    (semantic-fetch-tags)))
 
+(ert-deftest semantic-php-test-parser-require-include-inside-function()
+  "Make sure semantic-tag-components returns function members"
+  (with-test-buffer
+   "
+function x() {
+    require 'test.php';
+}"
+   (with-semantic-first-tag
+    (should (equal "x" (semantic-tag-name tag)))
+    (should (equal "test.php" (semantic-tag-name (car tag-members)))))))
+
 (provide 'test/parser/function)
 ;;; function.el ends here

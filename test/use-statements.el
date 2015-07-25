@@ -1,4 +1,4 @@
-;;; context-use-statements.el --- Test use statements
+;;; use-statements.el --- Test use statements
 
 ;; Copyright (C) 2014 Joris Steyn
 
@@ -27,7 +27,7 @@
 (require 'semantic-php)
 (require 'ert)
 
-(ert-deftest semantic-php-test-context-class-alias ()
+(ert-deftest semantic-php-test-use-statements-class-alias ()
   "Test context calculation for an aliassed class"
   (with-saved-test-buffer
    "use A as AliasA;
@@ -42,7 +42,7 @@ AliasA"
                         (should (equal 'type tag-class))
                         (should (equal "class" tag-type))))))
 
-(ert-deftest semantic-php-test-context-class-alias-namespace-braces()
+(ert-deftest semantic-php-test-use-statements-class-alias-namespace-braces()
   "Test context calculation for an aliassed class in a brace-block namespace"
   :expected-result :failed
   (with-saved-test-buffer
@@ -64,7 +64,7 @@ namespace B {
                         (should (equal "class" tag-type))
                         (should (semantic-tag-type-superclasses tag))))))
 
-(ert-deftest semantic-php-test-context-class-alias-namespace-braceless()
+(ert-deftest semantic-php-test-use-statements-class-alias-namespace-braceless()
   "Test context calculation for an aliassed class in a braceless namespace"
   :expected-result :failed
   (with-saved-test-buffer
@@ -85,7 +85,7 @@ AliasA"
                         (should (equal "class" tag-type))
                         (should (not (semantic-tag-type-superclasses tag)))))))
 
-(ert-deftest semantic-php-test-context-namespace-alias-braces()
+(ert-deftest semantic-php-test-use-statements-namespace-alias-braces()
   "Test context calculation for an aliassed namespace"
   :expected-result :failed
   (with-saved-test-buffer
@@ -107,7 +107,7 @@ namespace B {
                         (should (equal "class" tag-type))
                         (should (semantic-tag-type-superclasses tag))))))
 
-(ert-deftest semantic-php-test-context-namespace-alias-braceless()
+(ert-deftest semantic-php-test-use-statements-namespace-alias-braceless()
   "Test context calculation for an aliassed namespace"
   (with-saved-test-buffer
    "
@@ -127,5 +127,5 @@ AliasA\\A"
                         (should (equal "class" tag-type))
                         (should (not (semantic-tag-type-superclasses tag)))))))
 
-(provide 'test/context-use-statements)
-;; context-use-statements.el ends here
+(provide 'test/use-statements)
+;; use-statements.el ends here

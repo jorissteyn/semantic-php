@@ -141,6 +141,16 @@ emitting separate symbols for classes, interfaces and traits."
         (intern (plist-get tag-attribs :type))
       tag-class)))
 
+(define-mode-local-override semantic-tag-components
+  php-mode (tag)
+  "Return a list of components for TAG."
+  (cond ((semantic-tag-of-class-p tag 'type)
+	 (semantic-tag-type-members tag))
+        ((semantic-tag-of-class-p tag 'function)
+         (append (semantic-tag-function-arguments tag)
+                 (semantic-tag-type-members tag)))
+        (t nil)))
+
 (define-mode-local-override semantic-get-local-variables
   php-mode (&optional point)
   "Get local values from the context of point.
@@ -203,6 +213,18 @@ re-parse part of the buffer."
     (if (= (length parts) 1)
         (car parts)
       parts)))
+
+(define-mode-local-override semantic-find-tags-included
+  php-mode (&optional table)
+  "Find all include/require tags in TABLE.
+
+TABLE is a tag table.  See `semantic-something-to-tag-table'.
+
+Override the default behaviour to look in members of toplevel
+tags. Unlike in C, include statements can appear anywhere in a
+file."
+  (semantic-find-tags-by-class 'include
+                               (semantic-flatten-tags-table table)))
 
 (provide 'semantic-php)
 ;;; semantic-php.el ends here
