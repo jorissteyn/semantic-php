@@ -157,6 +157,7 @@ buffer."
 ;; Other tests
 (require 'test/class-members)
 (require 'test/context)
+(require 'test/docs)
 (require 'test/includes)
 (require 'test/lexer)
 (require 'test/local-variables)

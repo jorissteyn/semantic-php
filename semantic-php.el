@@ -225,5 +225,54 @@ file."
   (semantic-find-tags-by-class 'include
                                (semantic-flatten-tags-table table)))
 
+(define-mode-local-override semantic-documentation-for-tag
+  php-mode (&optional tag nosnarf)
+  "Find documentation from TAG and return it as a clean string.
+
+TAG might have DOCUMENTATION set in it already.  If not, there may be
+some documentation in a comment preceding TAG's definition which we
+can look for.  When appropriate, this can be overridden by a language specific
+enhancement.
+Optional argument NOSNARF means to only return the lexical analyzer token for it.
+If nosnarf if 'lex, then only return the lex token."
+  (let ((docstring (semantic-tag-get-attribute tag :documentation)))
+    (unless (stringp docstring)
+      (setq docstring (semantic-php-doc-snarf-comment-for-tag tag))
+      (semantic-tag-put-attribute tag :documentation docstring))
+    docstring))
+
+(defun semantic-php-doc-snarf-comment-for-tag (tag)
+  "Extract a docstring from the docblock preceding TAG.
+
+semantic-php does not use semantic-doc-snarf-comment-for-tag:
+* snarf-comment-for-tag makes assumptions on the character
+   classes inside the documentation string, this is very error
+   prone and fails for common cases like when embedding URLs in
+   the comment
+* semantic requires comment-end which is not set by cc-mode or php-mode"
+  (let ((docblock "")
+        (docstring ""))
+    (save-excursion
+      ;; Find the tag.
+      (semantic-go-to-tag tag)
+      (beginning-of-line)
+      (backward-char)
+
+      ;; Extract the docblock contents.
+      (when (looking-back "\*/")
+        (let ((docend (match-beginning 0))
+              docstart)
+          (when (search-backward "/\*\*" nil t)
+            (setq docstart (match-end 0)
+                  docblock (buffer-substring-no-properties docstart docend))))))
+
+    ;; Split the contents and produce a docstring.
+    (dolist (line (split-string docblock "\n" t) docstring)
+      (setq line (string-trim line))
+      (setq docstring (concat docstring
+                              "\n"
+                              (if (not (string= "*" line))
+                                  (string-remove-prefix "* " line)))))))
+
 (provide 'semantic-php)
 ;;; semantic-php.el ends here
