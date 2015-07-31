@@ -321,6 +321,7 @@
 %start class_statement
 %start const_decl
 %start const_list
+%start dereferencable_scalar
 %start function_declaration_statement
 %start interface_declaration_statement
 %start internal_functions_in_yacc
