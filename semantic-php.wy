@@ -330,9 +330,7 @@
 %start property
 %start simple_variable
 %start static_var
-%start trait_alias
 %start trait_declaration_statement
-%start trait_precedence
 
 %%
 
@@ -796,13 +794,9 @@ trait_adaptations
 
 trait_adaptations_brace_block
   : ;; EMPTY
-  | LBRACE trait_adaptation_list RBRACE
-    (identity $2)
-  ;
-
-trait_adaptation_list
-  : trait_adaptation
-  | trait_adaptation_list trait_adaptation (append $1 $2)
+  | LBRACE           ()
+  | RBRACE           ()
+  | trait_adaptation
   ;
 
 trait_adaptation
@@ -812,18 +806,18 @@ trait_adaptation
 
 trait_precedence
   : absolute_trait_method_reference T_INSTEADOF name_list
-    (EXPANDTAG (TAG $1 'trait-precedence :insteadof $3))
+    (TAG $1 'trait-precedence :insteadof $3)
   ;
 
 trait_alias
   : trait_method_reference T_AS T_STRING
-    (EXPANDTAG (TAG $1 'trait-alias :alias $3))
+    (TAG $1 'trait-alias :alias $3)
   | trait_method_reference T_AS reserved_non_modifiers
-    (EXPANDTAG (TAG $1 'trait-alias :alias $3))
+    (TAG $1 'trait-alias :alias $3)
   | trait_method_reference T_AS member_modifier identifier
-    (EXPANDTAG (TAG $1 'trait-alias :alias $4 :modifiers $3))
+    (TAG $1 'trait-alias :alias $4 :modifiers $3)
   | trait_method_reference T_AS member_modifier
-    (EXPANDTAG (TAG $1 'trait-alias :alias $3))
+    (TAG $1 'trait-alias :alias $3)
   ;
 
 trait_method_reference
