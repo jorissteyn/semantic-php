@@ -70,20 +70,13 @@ NAME is the group name, DECLS is the compound use declarations."
          (push decl result)))))
 
 (defun semantic-php-wy-macro-USEDECL (name &optional alias)
-  "Create a temporary tag for single use declaration.
+  "Create the relevant tags for single use declaration.
 
 NAME is the fully- or unqualified name, ALIAS is the optional alias."
   `(wisent-raw-tag
-    (semantic-tag-new-type
-     (or ,alias
-         ;; The last part of the name acts as an alias in PHP.
-         (car (last (split-string ,name "\\\\"))))
-     ;; TODO: Technically, the type could be anything. Not just a
-     ;; class, but there's no way to express that.
-     "class"
-     (list (semantic-tag-new-type ,name "class" nil nil))
-     nil
-     :kind 'alias)))
+    (semantic-tag-new-include
+     ,name
+     nil)))
 
 (defun semantic-php-wy-macro-USETYPE (decl type)
   "Set the type of a use declaration.
