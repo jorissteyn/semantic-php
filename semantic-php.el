@@ -213,6 +213,17 @@ re-parse part of the buffer."
         (car parts)
       parts)))
 
+(define-mode-local-override semantic-tag-include-filename php-mode (tag)
+  "Try to find file for class/interface TAG.
+
+Ask ede-php-autoload for the file of the class/interface."
+  (let ((name (semantic-tag-name tag)))
+    (if (and (bound-and-true-p ede-php-autoload-mode)
+             (ede-current-project))
+        (or (ede-php-autoload-find-class-def-file (ede-current-project) name)
+            name)
+      name)))
+
 (define-mode-local-override semantic-find-tags-included
   php-mode (&optional table)
   "Find all include/require tags in TABLE.
