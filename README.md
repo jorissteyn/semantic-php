@@ -43,7 +43,7 @@ Milestone #2+:
 
 # Suggested packages
 * [ede-php-autoload](https://github.com/stevenremot/ede-php-autoload)
-* [auto-complete](http://auto-complete.org/)
+* [auto-complete](http://github.com/auto-complete/auto-complete)
 * ...
 
 # Installation
